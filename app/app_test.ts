@@ -16,224 +16,86 @@
  */
 
 import {
+  callFunction,
   createMenu,
-  onApiVersionSettingSelected,
-  onNetworkCodeSettingSelected,
+  showApiVersionPrompt,
+  showImportChildSitesDialog,
+  showNetworkCodePrompt,
+  startChildSitesImport,
 } from './app';
+import {UserInterfaceHandler} from './user_interface_handler';
 import {UserSettings} from './user_settings';
 
-describe('input prompt for', () => {
-  let mockPrompt: jasmine.Spy<
-    (title: string) => GoogleAppsScript.Base.PromptResponse
-  >;
-  let mockUi: jasmine.SpyObj<GoogleAppsScript.Base.Ui>;
+describe('app', () => {
+  let mockUserInterfaceHandler: jasmine.SpyObj<UserInterfaceHandler>;
   let mockUserSettings: jasmine.SpyObj<UserSettings>;
 
   beforeEach(() => {
-    mockPrompt = jasmine.createSpy('prompt');
-    mockPrompt.and.returnValue({
-      getSelectedButton: () => 'OK',
-      getResponseText: () => '1234567890',
-    } as unknown as GoogleAppsScript.Base.PromptResponse);
-
-    mockUi = {
-      ButtonSet: {
-        OK_CANCEL: 'OK_CANCEL',
-      },
-      Button: {
-        OK: 'OK',
-      },
-      prompt: mockPrompt,
-      alert: jasmine.createSpy('alert', (message: string) => {}),
-      createMenu: () => ({
-        addItem: jasmine.createSpy('addItem'),
-        addSubMenu: jasmine.createSpy('addSubMenu'),
-        createSubMenu: jasmine.createSpy('createSubMenu'),
-        addToUi: jasmine.createSpy('addToUi'),
-      }),
-    } as unknown as jasmine.SpyObj<GoogleAppsScript.Base.Ui>;
+    mockUserInterfaceHandler = jasmine.createSpyObj('UserInterfaceHandler', [
+      'createMenu',
+      'showImportChildSitesDialog',
+      'showNetworkCodePrompt',
+      'showApiVersionPrompt',
+    ]);
     mockUserSettings = jasmine.createSpyObj('UserSettings', [
       'networkCode',
       'adManagerApiVersion',
     ]);
   });
 
-  describe('network code', () => {
-    it('sets network code when valid input is provided', () => {
-      onNetworkCodeSettingSelected(mockUserSettings, mockUi);
-      expect(mockUserSettings.networkCode).toBe('1234567890');
+  describe('createMenu', () => {
+    it('calls UserInterfaceHandler.createMenu', () => {
+      createMenu(mockUserInterfaceHandler);
+      expect(mockUserInterfaceHandler.createMenu).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('showImportChildSitesDialog', () => {
+    it('calls UserInterfaceHandler.showImportChildSitesDialog', () => {
+      showImportChildSitesDialog(mockUserInterfaceHandler);
+      expect(
+        mockUserInterfaceHandler.showImportChildSitesDialog,
+      ).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('showNetworkCodePrompt', () => {
+    it('calls UserInterfaceHandler.showNetworkCodePrompt', () => {
+      showNetworkCodePrompt(mockUserInterfaceHandler);
+      expect(
+        mockUserInterfaceHandler.showNetworkCodePrompt,
+      ).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('showApiVersionPrompt', () => {
+    it('calls UserInterfaceHandler.showApiVersionPrompt', () => {
+      showApiVersionPrompt(mockUserInterfaceHandler);
+      expect(
+        mockUserInterfaceHandler.showApiVersionPrompt,
+      ).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('startChildSitesImport', () => {
+    it('returns a string', () => {
+      expect(startChildSitesImport()).toBe('hello, importer');
+    });
+  });
+
+  describe('callFunction', () => {
+    it('calls the provided function with the provided arguments', () => {
+      const mockFunctions = {
+        'myCallableFunction': () => 'hello, world!',
+      };
+      const returnValue = callFunction('myCallableFunction', [], mockFunctions);
+      expect(returnValue).toBe('hello, world!');
     });
 
-    it('does not save value when prompt is cancelled', () => {
-      mockPrompt.and.returnValue({
-        getSelectedButton: () => 'CANCEL',
-        getResponseText: () => '1234567890',
-      } as unknown as GoogleAppsScript.Base.PromptResponse);
-      onNetworkCodeSettingSelected(mockUserSettings, mockUi);
-      expect(mockUserSettings.networkCode).toHaveBeenCalledTimes(0);
-    });
-
-    it('alerts when invalid input is provided', () => {
-      mockPrompt.and.returnValues(
-        // first call: invalid input
-        {
-          getSelectedButton: () => 'OK',
-          getResponseText: () => 'invalid',
-        } as unknown as GoogleAppsScript.Base.PromptResponse,
-        // second response: valid input
-        {
-          getSelectedButton: () => 'OK',
-          getResponseText: () => '123456',
-        } as unknown as GoogleAppsScript.Base.PromptResponse,
-      ),
-        onNetworkCodeSettingSelected(mockUserSettings, mockUi);
-      // toBeCalledOnceWith doesn't work because Apps Script's Ui.prompt has
-      // three overloads and the type checker doesn't know which one is called.
-      const lastAlertCall = mockUi.alert.calls.mostRecent();
-      expect(lastAlertCall.args).toEqual(['Invalid network code: invalid']);
-    });
-
-    it('opens a new prompt when invalid input is provided', () => {
-      mockPrompt.and.returnValues(
-        // first call: invalid input
-        {
-          getSelectedButton: () => 'OK',
-          getResponseText: () => 'invalid',
-        } as unknown as GoogleAppsScript.Base.PromptResponse,
-        // second response: valid input
-        {
-          getSelectedButton: () => 'OK',
-          getResponseText: () => '1234567890',
-        } as unknown as GoogleAppsScript.Base.PromptResponse,
+    it('throws an error when the function is not recognized', () => {
+      expect(() => callFunction('invalidFunction')).toThrowError(
+        'invalidFunction is not recognized.',
       );
-      onNetworkCodeSettingSelected(mockUserSettings, mockUi);
-
-      expect(mockPrompt).toHaveBeenCalledTimes(2);
     });
-  });
-
-  describe('ad manager api version', () => {
-    it('sets api version when valid input is provided', () => {
-      mockPrompt.and.returnValue({
-        getSelectedButton: () => 'OK',
-        getResponseText: () => 'v123456',
-      } as unknown as GoogleAppsScript.Base.PromptResponse);
-      onApiVersionSettingSelected(mockUserSettings, mockUi);
-      expect(mockUserSettings.adManagerApiVersion).toBe('v123456');
-    });
-
-    it('does not save value when prompt is cancelled', () => {
-      mockPrompt.and.returnValue({
-        getSelectedButton: () => 'CANCEL',
-        getResponseText: () => 'v123456',
-      } as unknown as GoogleAppsScript.Base.PromptResponse);
-      onNetworkCodeSettingSelected(mockUserSettings, mockUi);
-      expect(mockUserSettings.networkCode).toHaveBeenCalledTimes(0);
-    });
-
-    it('alerts when invalid input is provided', () => {
-      mockPrompt.and.returnValues(
-        // first call: invalid input
-        {
-          getSelectedButton: () => 'OK',
-          getResponseText: () => 'invalid',
-        } as unknown as GoogleAppsScript.Base.PromptResponse,
-        // second response: valid input
-        {
-          getSelectedButton: () => 'OK',
-          getResponseText: () => 'v123456',
-        } as unknown as GoogleAppsScript.Base.PromptResponse,
-      ),
-        onApiVersionSettingSelected(mockUserSettings, mockUi);
-      // toBeCalledOnceWith doesn't work because Apps Script's Ui.prompt has
-      // three overloads and the type checker doesn't know which one is called.
-      const lastAlertCall = mockUi.alert.calls.mostRecent();
-      expect(lastAlertCall.args).toEqual(['Invalid API Version: invalid']);
-    });
-
-    it('opens a new prompt when invalid input is provided', () => {
-      mockPrompt.and.returnValues(
-        // first call: invalid input
-        {
-          getSelectedButton: () => 'OK',
-          getResponseText: () => 'invalid',
-        } as unknown as GoogleAppsScript.Base.PromptResponse,
-        // second response: valid input
-        {
-          getSelectedButton: () => 'OK',
-          getResponseText: () => 'v123456',
-        } as unknown as GoogleAppsScript.Base.PromptResponse,
-      );
-      onApiVersionSettingSelected(mockUserSettings, mockUi);
-
-      expect(mockPrompt).toHaveBeenCalledTimes(2);
-    });
-  });
-});
-
-describe('createMenu', () => {
-  let mockMenu: jasmine.SpyObj<GoogleAppsScript.Base.Menu>;
-  let mockUi: jasmine.SpyObj<GoogleAppsScript.Base.Ui>;
-  let mockUserSettings: jasmine.SpyObj<UserSettings>;
-
-  beforeEach(() => {
-    mockMenu = jasmine.createSpyObj('Menu', [
-      'addItem',
-      'addSubMenu',
-      'createSubMenu',
-      'addToUi',
-    ]);
-    mockUi = jasmine.createSpyObj('Ui', ['createMenu']);
-    mockUi.createMenu.and.returnValue(mockMenu);
-    mockUserSettings = jasmine.createSpyObj('UserSettings', [
-      'networkCode',
-      'adManagerApiVersion',
-    ]);
-    mockUserSettings.networkCode = '1234567890';
-    mockUserSettings.adManagerApiVersion = 'v123456';
-  });
-
-  it('creates a menu called "Child Sites Toolkit"', () => {
-    createMenu(mockUserSettings, mockUi);
-    expect(mockUi.createMenu).toHaveBeenCalledWith('Child Sites Toolkit');
-  });
-
-  it('adds a menu item called "Hello, world!"', () => {
-    createMenu(mockUserSettings, mockUi);
-    expect(mockMenu.addItem).toHaveBeenCalledWith(
-      'Hello, world!',
-      'helloWorld',
-    );
-  });
-
-  it('adds a sub-menu item called "Settings"', () => {
-    createMenu(mockUserSettings, mockUi);
-    expect(mockUi.createMenu).toHaveBeenCalledWith('Settings');
-    expect(mockMenu.addSubMenu).toHaveBeenCalledOnceWith(
-      mockUi.createMenu.calls.mostRecent().returnValue,
-    );
-  });
-
-  it('adds an item to the settings sub-menu called: Network Code (value)', () => {
-    createMenu(mockUserSettings, mockUi);
-    const subMenu = mockMenu.addSubMenu.calls.mostRecent().args[0];
-    expect(subMenu.addItem).toHaveBeenCalledWith(
-      'Network Code (1234567890)',
-      'onNetworkCodeSettingSelected',
-    );
-  });
-
-  it('adds an item to the settings sub-menu called: Ad Manager API Version (value)', () => {
-    createMenu(mockUserSettings, mockUi);
-    const subMenu = mockMenu.addSubMenu.calls.mostRecent().args[0];
-    expect(subMenu.addItem).toHaveBeenCalledWith(
-      'Ad Manager API Version (v123456)',
-      'onApiVersionSettingSelected',
-    );
-  });
-
-  it('adds the menu to the UI', () => {
-    createMenu(mockUserSettings, mockUi);
-    expect(mockMenu.addToUi).toHaveBeenCalled();
   });
 });

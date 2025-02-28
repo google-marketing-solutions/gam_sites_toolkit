@@ -15,9 +15,17 @@
  * limitations under the License.
  */
 
+/**
+ * @fileoverview The main entry point for the application. Handles top-level
+ * functions for menus, dialogs, and interaction with the client.
+ */
+
+import {UserInterfaceHandler} from './user_interface_handler';
 import {UserSettings} from './user_settings';
 
 let userSettings: UserSettings;
+
+let userInterfaceHandler: UserInterfaceHandler;
 
 /**
  * Returns the user settings, creating them if they don't exist.
@@ -30,127 +38,114 @@ function getUserSettings() {
 }
 
 /**
- * Hello, world!
+ * Returns the user interface handler, creating it if it doesn't exist.
  */
-function helloWorld(): void {
-  SpreadsheetApp.getActiveSpreadsheet().toast('Hello, world!');
-}
-
-/**
- * Shows a prompt to the user to input a property value.
- *
- * @param message The message to display in the prompt.
- * @param ui The Ui instance to use for displaying the prompt.
- * @param validPattern A regular expression to validate the input.
- * @param onValidInput A callback function to execute when the input is valid.
- * @param onInvalidInput A callback function to execute when the input is
- * invalid.
- */
-export function showInputPrompt(
-  message: string,
-  ui: GoogleAppsScript.Base.Ui,
-  validPattern: RegExp = /.*/,
-  onValidInput: (validValue: string) => void = (validValue: string) => {},
-  onInvalidInput: (invalidValue: string) => void = (invalidValue: string) => {},
+function getUserInterfaceHandler(
+  ui = SpreadsheetApp.getUi(),
+  userSettings = getUserSettings(),
+  createHtmlTemplateFn = HtmlService.createTemplateFromFile,
 ) {
-  const prompt = ui.prompt(message, ui.ButtonSet.OK_CANCEL);
-  if (prompt.getSelectedButton() === ui.Button.OK) {
-    const responseText = prompt.getResponseText().trim();
-    if (validPattern.test(responseText)) {
-      onValidInput(responseText);
-    } else {
-      onInvalidInput(responseText);
-    }
+  if (!userInterfaceHandler) {
+    userInterfaceHandler = new UserInterfaceHandler(
+      ui,
+      userSettings,
+      createHtmlTemplateFn,
+    );
   }
-}
-
-/**
- * Prompts the user to input a new network code.
- *
- * @param userSettings The user settings to update.
- * @param ui The Ui instance to use for displaying the prompt.
- */
-export function onNetworkCodeSettingSelected(
-  userSettings = getUserSettings(),
-  ui = SpreadsheetApp.getUi(),
-): void {
-  showInputPrompt(
-    'Network Code',
-    ui,
-    /^[0-9]+$/,
-    (newValue: string) => {
-      userSettings.networkCode = newValue;
-      createMenu(userSettings, ui);
-    },
-    (invalidValue: string) => {
-      ui.alert(`Invalid network code: ${invalidValue}`);
-      onNetworkCodeSettingSelected(userSettings, ui);
-    },
-  );
-}
-
-/**
- * Prompts the user to input a new API version.
- *
- * @param userSettings The user settings to update.
- * @param ui The Ui instance to use for displaying the prompt.
- */
-export function onApiVersionSettingSelected(
-  userSettings = getUserSettings(),
-  ui = SpreadsheetApp.getUi(),
-): void {
-  showInputPrompt(
-    'API Version',
-    ui,
-    /^v\d{6}$/,
-    (newValue: string) => {
-      userSettings.adManagerApiVersion = newValue;
-      createMenu(userSettings, ui);
-    },
-    (invalidValue: string) => {
-      ui.alert(`Invalid API Version: ${invalidValue}`);
-      onApiVersionSettingSelected(userSettings, ui);
-    },
-  );
+  return userInterfaceHandler;
 }
 
 /**
  * Creates the menu for the application.
- *
- * @param userSettings The user settings to use for the menu items.
- * @param ui The Ui instance to use for creating the menu.
+ * @param userInterfaceHandler The user interface handler to use.
  */
-export function createMenu(
-  userSettings = getUserSettings(),
-  ui = SpreadsheetApp.getUi(),
+export function createMenu(userInterfaceHandler = getUserInterfaceHandler()) {
+  userInterfaceHandler.createMenu();
+}
+
+/**
+ * Shows the import child sites dialog.
+ * @param userInterfaceHandler The user interface handler to use.
+ */
+export function showImportChildSitesDialog(
+  userInterfaceHandler = getUserInterfaceHandler(),
+): void {
+  userInterfaceHandler.showImportChildSitesDialog();
+}
+
+/**
+ * Shows the network code prompt.
+ * @param userInterfaceHandler The user interface handler to use.
+ */
+export function showNetworkCodePrompt(
+  userInterfaceHandler = getUserInterfaceHandler(),
 ) {
-  const menu = ui.createMenu('Child Sites Toolkit');
-  menu.addItem('Hello, world!', 'helloWorld');
+  userInterfaceHandler.showNetworkCodePrompt();
+}
 
-  const subMenu = ui.createMenu('Settings');
-  const networkCode = userSettings.networkCode ?? 'Not set';
-  const apiVersion = userSettings.adManagerApiVersion;
-  subMenu.addItem(
-    `Network Code (${networkCode})`,
-    'onNetworkCodeSettingSelected',
-  );
-  subMenu.addItem(
-    `Ad Manager API Version (${apiVersion})`,
-    'onApiVersionSettingSelected',
-  );
-  menu.addSubMenu(subMenu);
+/**
+ * Shows the API version prompt.
+ * @param userInterfaceHandler The user interface handler to use.
+ */
+export function showApiVersionPrompt(
+  userInterfaceHandler = getUserInterfaceHandler(),
+) {
+  userInterfaceHandler.showApiVersionPrompt();
+}
 
-  menu.addToUi();
+/**
+ * Starts process to import child sites.
+ */
+export function startChildSitesImport() {
+  return 'hello, importer';
+}
+
+/**
+ * A map of functions that can be called from the client.
+ */
+const callableFunctions: {[functionName: string]: Function} = {
+  'startChildSitesImport': startChildSitesImport,
+};
+
+/**
+ * Calls the specified function with the given arguments. This is used to
+ * allow functions to be called from the client.
+ * @param functionName The name of the function to call.
+ * @param args The arguments to pass to the function.
+ * @param functions A map of functions available to be called.
+ * @return The return value of the function.
+ */
+export function callFunction(
+  functionName: string,
+  args: object[] = [],
+  functions: {[functionName: string]: Function} = callableFunctions,
+) {
+  if (functionName in functions) {
+    return functions[functionName](...args);
+  } else {
+    throw new Error(`${functionName} is not recognized.`);
+  }
 }
 
 /**
  * The entry point for the application.
  */
-function init(userSettings = getUserSettings(), ui = SpreadsheetApp.getUi()) {
-  createMenu(userSettings, ui);
+function onOpen() {
+  const handler = getUserInterfaceHandler();
+  handler.createMenu();
 }
 
 
 
-
-
+goog.exportSymbol(
+  UserInterfaceHandler.MENU_ITEM_IMPORT_CHILD_SITES,
+  showImportChildSitesDialog,
+);
+goog.exportSymbol(
+  UserInterfaceHandler.MENU_ITEM_SHOW_NETWORK_CODE_PROMPT,
+  showNetworkCodePrompt,
+);
+goog.exportSymbol(
+  UserInterfaceHandler.MENU_ITEM_SHOW_API_VERSION_PROMPT,
+  showApiVersionPrompt,
+);
