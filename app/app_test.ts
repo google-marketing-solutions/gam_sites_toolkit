@@ -21,10 +21,12 @@ import {
   showApiVersionPrompt,
   showImportChildSitesDialog,
   showNetworkCodePrompt,
-  startChildSitesImport,
+  startSitesImport,
+  TEST_ONLY,
 } from './app';
 import {UserInterfaceHandler} from './user_interface_handler';
 import {UserSettings} from './user_settings';
+const {setCallableFunctions} = TEST_ONLY;
 
 describe('app', () => {
   let mockUserInterfaceHandler: jasmine.SpyObj<UserInterfaceHandler>;
@@ -79,7 +81,12 @@ describe('app', () => {
 
   describe('startChildSitesImport', () => {
     it('returns a string', () => {
-      expect(startChildSitesImport()).toBe('hello, importer');
+      const mockDataHandler = jasmine.createSpyObj('DataHandler', [
+        'startSitesImport',
+      ]);
+      expect(startSitesImport('importId', 'query', mockDataHandler)).toBe(
+        mockDataHandler.startSitesImport('importId', {query: 'query'}),
+      );
     });
   });
 
@@ -88,7 +95,8 @@ describe('app', () => {
       const mockFunctions = {
         'myCallableFunction': () => 'hello, world!',
       };
-      const returnValue = callFunction('myCallableFunction', [], mockFunctions);
+      setCallableFunctions(mockFunctions);
+      const returnValue = callFunction('myCallableFunction', []);
       expect(returnValue).toBe('hello, world!');
     });
 

@@ -166,8 +166,10 @@ describe('UserInterfaceHandler', () => {
 
     it('shows the import dialog when the user confirms', () => {
       mockUi.alert.and.returnValue(mockUi.Button.YES);
+      const mockHtmlOutput = jasmine.createSpyObj('HtmlOutput', ['setHeight']);
+      // mockHtmlOutput.getContent.and.returnValue('html');
       mockCreateHtmlTemplateFn.and.returnValue({
-        evaluate: () => 'html',
+        evaluate: () => mockHtmlOutput,
       } as unknown as GoogleAppsScript.HTML.HtmlTemplate);
       const handler = new UserInterfaceHandler(
         mockUi,
@@ -178,8 +180,11 @@ describe('UserInterfaceHandler', () => {
       handler.showImportChildSitesDialog();
 
       expect(mockUi.showModalDialog).toHaveBeenCalledOnceWith(
-        mockCreateHtmlTemplateFn.calls.mostRecent().returnValue.evaluate(),
-        'Import Child Sites',
+        mockCreateHtmlTemplateFn.calls
+          .mostRecent()
+          .returnValue.evaluate()
+          .setHeight(200),
+        'Import Sites',
       );
     });
   });

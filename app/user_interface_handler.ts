@@ -72,7 +72,10 @@ export class UserInterfaceHandler {
     );
     if (selectedButton === this.ui.Button.YES) {
       var htmlTemplate = this.createHtmlTemplateFn('import_dialog');
-      this.ui.showModalDialog(htmlTemplate.evaluate(), 'Import Child Sites');
+      this.ui.showModalDialog(
+        htmlTemplate.evaluate().setHeight(200),
+        'Import Sites',
+      );
     }
   }
 
