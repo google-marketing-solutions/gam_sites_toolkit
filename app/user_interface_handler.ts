@@ -20,50 +20,68 @@
  */
 import {UserSettings} from './user_settings';
 
-export class UserInterfaceHandler {
-  public static readonly MENU_ITEM_IMPORT_CHILD_SITES = 'startChildSitesImport';
-  public static readonly MENU_ITEM_SHOW_API_VERSION_PROMPT =
-    'showApiVersionPrompt';
-  public static readonly MENU_ITEM_SHOW_NETWORK_CODE_PROMPT =
-    'showNetworkCodePrompt';
+/**
+ * Represents a menu item, which can be a string (representing a function) or a
+ * nested menu.
+ */
+export interface Menu {
+  [name: string]: string | Menu;
+}
 
+/**
+ * Handles user interface interactions.
+ */
+export class UserInterfaceHandler {
+  /**
+   * @param ui The Apps Script UI service.
+   * @param createHtmlTemplateFn A function to create HTML templates.
+   */
   constructor(
     private readonly ui: GoogleAppsScript.Base.Ui,
-    private readonly userSettings: UserSettings,
     private readonly createHtmlTemplateFn: (
       filename: string,
     ) => GoogleAppsScript.HTML.HtmlTemplate,
   ) {}
 
   /**
-   * Creates the menu for the application.
+   * Recursive implementation of `createMenu`.
+   *
+   * @param name The name of the submenu.
+   * @param menu The menu items.
    */
-  createMenu() {
-    const menu = this.ui.createMenu('Child Sites Toolkit');
-    menu.addItem(
-      'Import Child Sites',
-      UserInterfaceHandler.MENU_ITEM_IMPORT_CHILD_SITES,
-    );
-
-    const subMenu = this.ui.createMenu('Settings');
-    const networkCode = this.userSettings.networkCode ?? 'Not set';
-    const apiVersion = this.userSettings.adManagerApiVersion;
-    subMenu.addItem(
-      `Network Code (${networkCode})`,
-      UserInterfaceHandler.MENU_ITEM_SHOW_NETWORK_CODE_PROMPT,
-    );
-    subMenu.addItem(
-      `Ad Manager API Version (${apiVersion})`,
-      UserInterfaceHandler.MENU_ITEM_SHOW_API_VERSION_PROMPT,
-    );
-    menu.addSubMenu(subMenu);
-
-    menu.addToUi();
+  private createMenuImpl(name: string, menu: Menu) {
+    const newMenu = this.ui.createMenu(name);
+    for (const [name, menuItem] of Object.entries(menu)) {
+      if (typeof menuItem === 'string') {
+        newMenu.addItem(name, menuItem);
+      } else {
+        const subMenu = this.createMenuImpl(name, menuItem);
+        newMenu.addSubMenu(subMenu);
+      }
+    }
+    return newMenu;
   }
 
-  showImportChildSitesDialog(): void {
+  /**
+   * Adds a menu to the UI.
+   *
+   * @param name The name of the menu.
+   * @param menu The menu items.
+   */
+  createMenu(name: string, menu: Menu) {
+    const sheetsMenu = this.createMenuImpl(name, menu);
+    sheetsMenu.addToUi();
+  }
+
+  /**
+   * Shows the import sites dialog.
+   *
+   * @param title The title of the dialog.
+   * @param query The query to use for importing sites.
+   */
+  showImportSitesDialog(title: string, query: string): void {
     const selectedButton = this.ui.alert(
-      'Import Child Sites',
+      title,
       'Please be aware that imported data will be visible to anyone with ' +
         'access to this Google Sheets file regardless of whether or not they ' +
         'have access to the data within Google Ad Manager. Do you wish to ' +
@@ -72,15 +90,13 @@ export class UserInterfaceHandler {
     );
     if (selectedButton === this.ui.Button.YES) {
       var htmlTemplate = this.createHtmlTemplateFn('import_dialog');
-      this.ui.showModalDialog(
-        htmlTemplate.evaluate().setHeight(200),
-        'Import Sites',
-      );
+      htmlTemplate['query'] = JSON.stringify(query);
+      this.ui.showModalDialog(htmlTemplate.evaluate().setHeight(200), title);
     }
   }
 
   /**
-   * Shows a prompt to the user to input a property value.
+   * Shows a prompt to the user to input a value.
    *
    * @param message The message to display in the prompt.
    * @param validPattern A regular expression to validate the input.
@@ -88,7 +104,7 @@ export class UserInterfaceHandler {
    * @param onInvalidInput A callback function to execute when the input is
    * invalid.
    */
-  private showInputPrompt(
+  showInputPrompt(
     message: string,
     validPattern: RegExp = /.*/,
     onValidInput: (validValue: string) => void = (validValue: string) => {},
@@ -108,38 +124,11 @@ export class UserInterfaceHandler {
   }
 
   /**
-   * Prompts the user to input a new network code.
+   * Shows an alert message.
+   *
+   * @param message The message to display.
    */
-  showNetworkCodePrompt(): void {
-    this.showInputPrompt(
-      'Network Code',
-      /^[0-9]+$/,
-      (newValue: string) => {
-        this.userSettings.networkCode = newValue;
-        this.createMenu();
-      },
-      (invalidValue: string) => {
-        this.ui.alert(`Invalid network code: ${invalidValue}`);
-        this.showNetworkCodePrompt();
-      },
-    );
-  }
-
-  /**
-   * Prompts the user to input a new API version.
-   */
-  showApiVersionPrompt(): void {
-    this.showInputPrompt(
-      'API Version',
-      /^v\d{6}$/,
-      (newValue: string) => {
-        this.userSettings.adManagerApiVersion = newValue;
-        this.createMenu();
-      },
-      (invalidValue: string) => {
-        this.ui.alert(`Invalid API version: ${invalidValue}`);
-        this.showApiVersionPrompt();
-      },
-    );
+  showAlert(message: string): void {
+    this.ui.alert(message);
   }
 }

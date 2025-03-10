@@ -31,6 +31,17 @@ let sitesLoaded = 0;
 
 let totalResults: number;
 
+function init(query: string) {
+  setInterval(() => {
+    elapsedTime++;
+    updateProgress();
+  }, 1000);
+  console.log('init', query);
+  google.script.run
+    .withSuccessHandler(onImportStartedSuccess)
+    ['callFunction']('startSitesImport', importId, query);
+}
+
 /**
  * Updates the progress bar and other UI elements.
  */
@@ -91,6 +102,8 @@ function onSitesLoadedSuccess(sitesLoadedInBatch: number) {
   sitesLoaded += sitesLoadedInBatch;
   if (sitesLoaded === totalResults) {
     onAllSitesLoaded();
+  } else {
+    processStatementQueue();
   }
 }
 
@@ -110,18 +123,4 @@ function onAllSitesLoaded() {
     ['callFunction']('finishSitesImport', importId);
 }
 
-/**
- * Increments the elapsed time and updates the progress bar.
- */
-setInterval(() => {
-  elapsedTime++;
-  updateProgress();
-}, 1000);
 
-const query = '';
-/**
- * Starts the sites import process.
- */
-google.script.run
-  .withSuccessHandler(onImportStartedSuccess)
-  ['callFunction']('startSitesImport', importId, query);

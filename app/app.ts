@@ -24,8 +24,18 @@ import {AdManagerClient} from 'google3/third_party/professional_services/solutio
 import {Statement} from 'google3/third_party/professional_services/solutions/gam_apps_script/typings/statement';
 import {DataHandler} from './data_handler';
 import {Site} from './typings/ad_manager_api';
-import {UserInterfaceHandler} from './user_interface_handler';
+import {Menu, UserInterfaceHandler} from './user_interface_handler';
 import {UserSettings} from './user_settings';
+
+const MENU_ITEM_IMPORT_ALL_SITES = 'onImportAllSitesSelected';
+const MENU_ITEM_IMPORT_FIRST_PARTY_SITES = 'onImportFirstPartySitesSelected';
+const MENU_ITEM_IMPORT_CHILD_SITES = 'onImportChildSitesSelected';
+const MENU_ITEM_IMPORT_SITES_BY_CHILD_NETWORK_CODE =
+  'onImportSitesByChildNetworkCodeSelected';
+const MENU_ITEM_IMPORT_SITES_BY_CUSTOM_QUERY =
+  'onImportSitesByCustomQuerySelected';
+const MENU_ITEM_SHOW_API_VERSION_PROMPT = 'showApiVersionPrompt';
+const MENU_ITEM_SHOW_NETWORK_CODE_PROMPT = 'showNetworkCodePrompt';
 
 let userSettings: UserSettings;
 
@@ -52,11 +62,7 @@ function getUserInterfaceHandler(
   createHtmlTemplateFn = HtmlService.createTemplateFromFile,
 ) {
   if (!userInterfaceHandler) {
-    userInterfaceHandler = new UserInterfaceHandler(
-      ui,
-      userSettings,
-      createHtmlTemplateFn,
-    );
+    userInterfaceHandler = new UserInterfaceHandler(ui, createHtmlTemplateFn);
   }
   return userInterfaceHandler;
 }
@@ -86,18 +92,102 @@ function getDataHandler(userSettings = getUserSettings()) {
  * Creates the menu for the application.
  * @param userInterfaceHandler The user interface handler to use.
  */
-export function createMenu(userInterfaceHandler = getUserInterfaceHandler()) {
-  userInterfaceHandler.createMenu();
+export function createMenu(
+  userInterfaceHandler = getUserInterfaceHandler(),
+  userSettings = getUserSettings(),
+) {
+  const networkCode = userSettings.networkCode ?? 'Not set';
+  const apiVersion = userSettings.adManagerApiVersion;
+  const menu = {
+    'Import Sites': {
+      'All': MENU_ITEM_IMPORT_ALL_SITES,
+      'First Party': MENU_ITEM_IMPORT_FIRST_PARTY_SITES,
+      'Children': MENU_ITEM_IMPORT_CHILD_SITES,
+      'By Child Network Code': MENU_ITEM_IMPORT_SITES_BY_CHILD_NETWORK_CODE,
+      'By Custom Query': MENU_ITEM_IMPORT_SITES_BY_CUSTOM_QUERY,
+    },
+    'Settings': {
+      [`Network Code (${networkCode})`]: MENU_ITEM_SHOW_NETWORK_CODE_PROMPT,
+      [`Ad Manager API Version (${apiVersion})`]:
+        MENU_ITEM_SHOW_API_VERSION_PROMPT,
+    },
+  };
+  userInterfaceHandler.createMenu('GAM Sites Toolkit', menu);
 }
 
 /**
- * Shows the import child sites dialog.
+ * Starts an import of all sites.
  * @param userInterfaceHandler The user interface handler to use.
  */
-export function showImportChildSitesDialog(
+export function onImportAllSitesSelected(
   userInterfaceHandler = getUserInterfaceHandler(),
 ): void {
-  userInterfaceHandler.showImportChildSitesDialog();
+  userInterfaceHandler.showImportSitesDialog('Import All Sites', '');
+}
+
+/**
+ * Starts an import of first party sites.
+ * @param userInterfaceHandler The user interface handler to use.
+ */
+export function onImportFirstPartySitesSelected(
+  userInterfaceHandler = getUserInterfaceHandler(),
+): void {
+  userInterfaceHandler.showImportSitesDialog(
+    'Import First Party Sites',
+    "WHERE childNetworkCode = ''",
+  );
+}
+
+/**
+ * Starts an import of child sites.
+ * @param userInterfaceHandler The user interface handler to use.
+ */
+export function onImportChildSitesSelected(
+  userInterfaceHandler = getUserInterfaceHandler(),
+): void {
+  userInterfaceHandler.showImportSitesDialog(
+    'Import Child Sites',
+    "WHERE childNetworkCode != ''",
+  );
+}
+
+/**
+ * Starts an import of sites by child network code.
+ * @param userInterfaceHandler The user interface handler to use.
+ */
+export function onImportSitesByChildNetworkCodeSelected(
+  userInterfaceHandler = getUserInterfaceHandler(),
+): void {
+  userInterfaceHandler.showInputPrompt(
+    'Child Network Code',
+    /^[0-9]+$/,
+    (childNetworkCode: string) => {
+      userInterfaceHandler.showImportSitesDialog(
+        `Import Sites by Child Network Code (${childNetworkCode})`,
+        `WHERE childNetworkCode = '${childNetworkCode}'`,
+      );
+    },
+    (invalidChildNetworkCode: string) => {
+      userInterfaceHandler.showAlert(
+        `Invalid child network code: ${invalidChildNetworkCode}`,
+      );
+    },
+  );
+}
+
+/**
+ * Starts an import of sites by custom PQL query.
+ * @param userInterfaceHandler The user interface handler to use.
+ */
+export function onImportSitesByCustomQuerySelected(
+  userInterfaceHandler = getUserInterfaceHandler(),
+): void {
+  userInterfaceHandler.showInputPrompt('PQL Query', /.*/, (query: string) => {
+    userInterfaceHandler.showImportSitesDialog(
+      `Import Sites by PQL Query (${query})`,
+      query,
+    );
+  });
 }
 
 /**
@@ -106,8 +196,20 @@ export function showImportChildSitesDialog(
  */
 export function showNetworkCodePrompt(
   userInterfaceHandler = getUserInterfaceHandler(),
+  userSettings = getUserSettings(),
 ) {
-  userInterfaceHandler.showNetworkCodePrompt();
+  userInterfaceHandler.showInputPrompt(
+    'Network Code',
+    /^[0-9]+$/,
+    (newValue: string) => {
+      userSettings.networkCode = newValue;
+      createMenu(userInterfaceHandler, userSettings);
+    },
+    (invalidValue: string) => {
+      userInterfaceHandler.showAlert(`Invalid network code: ${invalidValue}`);
+      showNetworkCodePrompt(userInterfaceHandler, userSettings);
+    },
+  );
 }
 
 /**
@@ -116,8 +218,20 @@ export function showNetworkCodePrompt(
  */
 export function showApiVersionPrompt(
   userInterfaceHandler = getUserInterfaceHandler(),
+  userSettings = getUserSettings(),
 ) {
-  userInterfaceHandler.showApiVersionPrompt();
+  userInterfaceHandler.showInputPrompt(
+    'Ad Manager API Version',
+    /^v\d{6}$/,
+    (newValue: string) => {
+      userSettings.adManagerApiVersion = newValue;
+      createMenu(userInterfaceHandler, userSettings);
+    },
+    (invalidValue: string) => {
+      userInterfaceHandler.showAlert(`Invalid API version: ${invalidValue}`);
+      showApiVersionPrompt(userInterfaceHandler, userSettings);
+    },
+  );
 }
 
 /**
@@ -135,7 +249,7 @@ export function startSitesImport(
   statements: Statement[];
   totalResults: number;
 } {
-  return dataHandler.startSitesImport(importId, {query});
+  return dataHandler.startSitesImport(importId, {'query': query});
 }
 
 /**
@@ -145,7 +259,7 @@ export function startSitesImport(
  * @param dataHandler The data handler to use.
  * @return The number of sites returned.
  */
-function getSites(
+export function getSites(
   importId: string,
   statement: Statement,
   dataHandler = getDataHandler(),
@@ -158,7 +272,7 @@ function getSites(
  * @param importId The ID of the import process.
  * @param dataHandler The data handler to use.
  */
-function finishSitesImport(
+export function finishSitesImport(
   importId: string,
   dataHandler = getDataHandler(),
 ): void {
@@ -215,24 +329,29 @@ export function include(filename: string): string {
  */
 function onOpen() {
   const handler = getUserInterfaceHandler();
-  handler.createMenu();
+  const settings = getUserSettings();
+  createMenu(handler, settings);
 }
 
 
 
 
+goog.exportSymbol(MENU_ITEM_IMPORT_ALL_SITES, onImportAllSitesSelected);
+goog.exportSymbol(MENU_ITEM_IMPORT_CHILD_SITES, onImportChildSitesSelected);
 goog.exportSymbol(
-  UserInterfaceHandler.MENU_ITEM_IMPORT_CHILD_SITES,
-  showImportChildSitesDialog,
+  MENU_ITEM_IMPORT_FIRST_PARTY_SITES,
+  onImportFirstPartySitesSelected,
 );
 goog.exportSymbol(
-  UserInterfaceHandler.MENU_ITEM_SHOW_NETWORK_CODE_PROMPT,
-  showNetworkCodePrompt,
+  MENU_ITEM_IMPORT_SITES_BY_CHILD_NETWORK_CODE,
+  onImportSitesByChildNetworkCodeSelected,
 );
 goog.exportSymbol(
-  UserInterfaceHandler.MENU_ITEM_SHOW_API_VERSION_PROMPT,
-  showApiVersionPrompt,
+  MENU_ITEM_IMPORT_SITES_BY_CUSTOM_QUERY,
+  onImportSitesByCustomQuerySelected,
 );
+goog.exportSymbol(MENU_ITEM_SHOW_NETWORK_CODE_PROMPT, showNetworkCodePrompt);
+goog.exportSymbol(MENU_ITEM_SHOW_API_VERSION_PROMPT, showApiVersionPrompt);
 
 /**
  * Exposes functions for testing.

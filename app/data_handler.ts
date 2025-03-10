@@ -89,8 +89,8 @@ export class DataHandler {
     if (query.includes('limit') || query.includes('offset')) {
       throw new Error('Limit and offset are not supported');
     }
-    this.createSheet(importId);
     const totalResultSetSize = this.getResultSetSize(statement);
+    this.createSheet(importId);
     const statements: Statement[] = [];
     const totalResults = Math.min(totalResultSetSize, maxResults);
     for (let i = 0; i < totalResults; i += batchSize) {

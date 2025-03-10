@@ -18,8 +18,14 @@
 import {
   callFunction,
   createMenu,
+  finishSitesImport,
+  getSites,
+  onImportAllSitesSelected,
+  onImportChildSitesSelected,
+  onImportFirstPartySitesSelected,
+  onImportSitesByChildNetworkCodeSelected,
+  onImportSitesByCustomQuerySelected,
   showApiVersionPrompt,
-  showImportChildSitesDialog,
   showNetworkCodePrompt,
   startSitesImport,
   TEST_ONLY,
@@ -35,9 +41,9 @@ describe('app', () => {
   beforeEach(() => {
     mockUserInterfaceHandler = jasmine.createSpyObj('UserInterfaceHandler', [
       'createMenu',
-      'showImportChildSitesDialog',
-      'showNetworkCodePrompt',
-      'showApiVersionPrompt',
+      'showImportSitesDialog',
+      'showInputPrompt',
+      'showAlert',
     ]);
     mockUserSettings = jasmine.createSpyObj('UserSettings', [
       'networkCode',
@@ -47,35 +53,223 @@ describe('app', () => {
 
   describe('createMenu', () => {
     it('calls UserInterfaceHandler.createMenu', () => {
-      createMenu(mockUserInterfaceHandler);
-      expect(mockUserInterfaceHandler.createMenu).toHaveBeenCalledTimes(1);
+      mockUserSettings.networkCode = '123456789';
+      mockUserSettings.adManagerApiVersion = 'v202405';
+      const expectedMenu = {
+        'Import Sites': {
+          'All': 'onImportAllSitesSelected',
+          'First Party': 'onImportFirstPartySitesSelected',
+          'Children': 'onImportChildSitesSelected',
+          'By Child Network Code': 'onImportSitesByChildNetworkCodeSelected',
+          'By Custom Query': 'onImportSitesByCustomQuerySelected',
+        },
+        'Settings': {
+          'Network Code (123456789)': 'showNetworkCodePrompt',
+          'Ad Manager API Version (v202405)': 'showApiVersionPrompt',
+        },
+      };
+
+      createMenu(mockUserInterfaceHandler, mockUserSettings);
+
+      expect(mockUserInterfaceHandler.createMenu).toHaveBeenCalledOnceWith(
+        'GAM Sites Toolkit',
+        expectedMenu,
+      );
     });
   });
 
-  describe('showImportChildSitesDialog', () => {
-    it('calls UserInterfaceHandler.showImportChildSitesDialog', () => {
-      showImportChildSitesDialog(mockUserInterfaceHandler);
+  describe('onImportAllSitesSelected', () => {
+    it('correctly calls UserInterfaceHandler.showImportSitesDialog', () => {
+      onImportAllSitesSelected(mockUserInterfaceHandler);
       expect(
-        mockUserInterfaceHandler.showImportChildSitesDialog,
-      ).toHaveBeenCalledTimes(1);
+        mockUserInterfaceHandler.showImportSitesDialog,
+      ).toHaveBeenCalledOnceWith('Import All Sites', '');
+    });
+  });
+
+  describe('onImportFirstPartySitesSelected', () => {
+    it('correctly calls UserInterfaceHandler.showImportSitesDialog', () => {
+      onImportFirstPartySitesSelected(mockUserInterfaceHandler);
+      expect(
+        mockUserInterfaceHandler.showImportSitesDialog,
+      ).toHaveBeenCalledOnceWith(
+        'Import First Party Sites',
+        "WHERE childNetworkCode = ''",
+      );
+    });
+  });
+
+  describe('onImportChildSitesSelected', () => {
+    it('correctly calls UserInterfaceHandler.showImportSitesDialog', () => {
+      onImportChildSitesSelected(mockUserInterfaceHandler);
+      expect(
+        mockUserInterfaceHandler.showImportSitesDialog,
+      ).toHaveBeenCalledOnceWith(
+        'Import Child Sites',
+        "WHERE childNetworkCode != ''",
+      );
+    });
+  });
+
+  describe('onImportSitesByChildNetworkCodeSelected', () => {
+    it('correctly calls UserInterfaceHandler.showInputPrompt', () => {
+      onImportSitesByChildNetworkCodeSelected(mockUserInterfaceHandler);
+      expect(mockUserInterfaceHandler.showInputPrompt).toHaveBeenCalledOnceWith(
+        'Child Network Code',
+        /^[0-9]+$/,
+        jasmine.any(Function),
+        jasmine.any(Function),
+      );
+    });
+
+    it('for valid input, calls UserInterfaceHandler.showImportSitesDialog', () => {
+      onImportSitesByChildNetworkCodeSelected(mockUserInterfaceHandler);
+      const successCallback =
+        mockUserInterfaceHandler.showInputPrompt.calls.mostRecent().args[2];
+
+      if (successCallback !== undefined) {
+        successCallback('123456789');
+      } else {
+        fail('successCallback is undefined');
+      }
+
+      expect(
+        mockUserInterfaceHandler.showImportSitesDialog,
+      ).toHaveBeenCalledOnceWith(
+        'Import Sites by Child Network Code (123456789)',
+        "WHERE childNetworkCode = '123456789'",
+      );
+    });
+
+    it('for invalid input, calls UserInterfaceHandler.showAlert', () => {
+      onImportSitesByChildNetworkCodeSelected(mockUserInterfaceHandler);
+      const failureCallback =
+        mockUserInterfaceHandler.showInputPrompt.calls.mostRecent().args[3];
+
+      if (failureCallback !== undefined) {
+        failureCallback('abcdefg');
+      } else {
+        fail('failureCallback is undefined');
+      }
+
+      expect(mockUserInterfaceHandler.showAlert).toHaveBeenCalledOnceWith(
+        'Invalid child network code: abcdefg',
+      );
+    });
+  });
+
+  describe('onImportSitesByCustomQuerySelected', () => {
+    it('correctly calls UserInterfaceHandler.showInputPrompt', () => {
+      onImportSitesByCustomQuerySelected(mockUserInterfaceHandler);
+      expect(mockUserInterfaceHandler.showInputPrompt).toHaveBeenCalledOnceWith(
+        'PQL Query',
+        /.*/,
+        jasmine.any(Function),
+      );
+    });
+
+    it('for valid input, calls UserInterfaceHandler.showImportSitesDialog', () => {
+      onImportSitesByCustomQuerySelected(mockUserInterfaceHandler);
+      const successCallback =
+        mockUserInterfaceHandler.showInputPrompt.calls.mostRecent().args[2];
+
+      if (successCallback !== undefined) {
+        successCallback('pql');
+      } else {
+        fail('successCallback is undefined');
+      }
+
+      expect(
+        mockUserInterfaceHandler.showImportSitesDialog,
+      ).toHaveBeenCalledOnceWith('Import Sites by PQL Query (pql)', 'pql');
     });
   });
 
   describe('showNetworkCodePrompt', () => {
-    it('calls UserInterfaceHandler.showNetworkCodePrompt', () => {
-      showNetworkCodePrompt(mockUserInterfaceHandler);
-      expect(
-        mockUserInterfaceHandler.showNetworkCodePrompt,
-      ).toHaveBeenCalledTimes(1);
+    it('shows an input prompt for the network code', () => {
+      showNetworkCodePrompt(mockUserInterfaceHandler, mockUserSettings);
+      expect(mockUserInterfaceHandler.showInputPrompt).toHaveBeenCalledOnceWith(
+        'Network Code',
+        /^[0-9]+$/,
+        jasmine.any(Function),
+        jasmine.any(Function),
+      );
+    });
+
+    it('updates the user settings when a valid network code is entered', () => {
+      showNetworkCodePrompt(mockUserInterfaceHandler, mockUserSettings);
+      const successCallback =
+        mockUserInterfaceHandler.showInputPrompt.calls.mostRecent().args[2];
+
+      if (successCallback !== undefined) {
+        successCallback('123456789');
+      } else {
+        fail('successCallback is undefined');
+      }
+
+      expect(mockUserSettings.networkCode).toBe('123456789');
+      expect(mockUserInterfaceHandler.createMenu).toHaveBeenCalledTimes(1);
+    });
+
+    it('prompts again when an invalid network code is entered', () => {
+      showNetworkCodePrompt(mockUserInterfaceHandler, mockUserSettings);
+      const failureCallback =
+        mockUserInterfaceHandler.showInputPrompt.calls.mostRecent().args[3];
+
+      if (failureCallback !== undefined) {
+        failureCallback('abcdefg');
+      } else {
+        fail('failureCallback is undefined');
+      }
+
+      expect(mockUserInterfaceHandler.showAlert).toHaveBeenCalledOnceWith(
+        'Invalid network code: abcdefg',
+      );
+      expect(mockUserInterfaceHandler.showInputPrompt).toHaveBeenCalledTimes(2);
     });
   });
 
   describe('showApiVersionPrompt', () => {
-    it('calls UserInterfaceHandler.showApiVersionPrompt', () => {
-      showApiVersionPrompt(mockUserInterfaceHandler);
-      expect(
-        mockUserInterfaceHandler.showApiVersionPrompt,
-      ).toHaveBeenCalledTimes(1);
+    it('shows an input prompt for the API version', () => {
+      showApiVersionPrompt(mockUserInterfaceHandler, mockUserSettings);
+      expect(mockUserInterfaceHandler.showInputPrompt).toHaveBeenCalledOnceWith(
+        'Ad Manager API Version',
+        /^v\d{6}$/,
+        jasmine.any(Function),
+        jasmine.any(Function),
+      );
+    });
+
+    it('updates the user settings when a valid API version is entered', () => {
+      showApiVersionPrompt(mockUserInterfaceHandler, mockUserSettings);
+      const successCallback =
+        mockUserInterfaceHandler.showInputPrompt.calls.mostRecent().args[2];
+
+      if (successCallback !== undefined) {
+        successCallback('v202405');
+      } else {
+        fail('successCallback is undefined');
+      }
+
+      expect(mockUserSettings.adManagerApiVersion).toBe('v202405');
+      expect(mockUserInterfaceHandler.createMenu).toHaveBeenCalledTimes(1);
+    });
+
+    it('prompts again when an invalid API version is entered', () => {
+      showApiVersionPrompt(mockUserInterfaceHandler, mockUserSettings);
+      const failureCallback =
+        mockUserInterfaceHandler.showInputPrompt.calls.mostRecent().args[3];
+
+      if (failureCallback !== undefined) {
+        failureCallback('1234');
+      } else {
+        fail('failureCallback is undefined');
+      }
+
+      expect(mockUserInterfaceHandler.showAlert).toHaveBeenCalledOnceWith(
+        'Invalid API version: 1234',
+      );
+      expect(mockUserInterfaceHandler.showInputPrompt).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -86,6 +280,27 @@ describe('app', () => {
       ]);
       expect(startSitesImport('importId', 'query', mockDataHandler)).toBe(
         mockDataHandler.startSitesImport('importId', {query: 'query'}),
+      );
+    });
+  });
+
+  describe('getSites', () => {
+    it('returns dataHandler.getSites', () => {
+      const mockDataHandler = jasmine.createSpyObj('DataHandler', ['getSites']);
+      expect(getSites('importId', {'query': 'q'}, mockDataHandler)).toBe(
+        mockDataHandler.getSites('importId', {'query': 'q'}),
+      );
+    });
+  });
+
+  describe('finishSitesImport', () => {
+    it('calls dataHandler.finishSitesImport', () => {
+      const mockDataHandler = jasmine.createSpyObj('DataHandler', [
+        'finishSitesImport',
+      ]);
+      finishSitesImport('importId', mockDataHandler);
+      expect(mockDataHandler.finishSitesImport).toHaveBeenCalledOnceWith(
+        'importId',
       );
     });
   });
