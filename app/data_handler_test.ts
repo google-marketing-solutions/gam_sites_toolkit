@@ -28,6 +28,7 @@ describe('DataHandler', () => {
       'getSheetByName',
       'insertSheet',
       'hideSheet',
+      'deleteSheet',
     ]);
     mockService = jasmine.createSpyObj('AdManagerService', [
       'performOperation',
@@ -155,6 +156,14 @@ describe('DataHandler', () => {
         const sheet = mockSpreadsheet.getSheetByName('importId');
         expect(sheet?.showSheet).toHaveBeenCalled();
         expect(sheet?.activate).toHaveBeenCalled();
+      });
+    });
+
+    describe('cancelSitesImport', () => {
+      it('deletes the sheet', () => {
+        const dataHandler = new DataHandler(mockService, mockSpreadsheet);
+        dataHandler.cancelSitesImport('importId');
+        expect(mockSpreadsheet.deleteSheet).toHaveBeenCalled();
       });
     });
   });

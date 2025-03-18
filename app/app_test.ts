@@ -17,6 +17,7 @@
 
 import {
   callFunction,
+  cancelSitesImport,
   createMenu,
   finishSitesImport,
   getSites,
@@ -83,7 +84,7 @@ describe('app', () => {
       onImportAllSitesSelected(mockUserInterfaceHandler);
       expect(
         mockUserInterfaceHandler.showImportSitesDialog,
-      ).toHaveBeenCalledOnceWith('Import All Sites', '');
+      ).toHaveBeenCalledOnceWith('Import All Sites', '', false);
     });
   });
 
@@ -95,6 +96,7 @@ describe('app', () => {
       ).toHaveBeenCalledOnceWith(
         'Import First Party Sites',
         "WHERE childNetworkCode = ''",
+        false,
       );
     });
   });
@@ -107,6 +109,7 @@ describe('app', () => {
       ).toHaveBeenCalledOnceWith(
         'Import Child Sites',
         "WHERE childNetworkCode != ''",
+        false,
       );
     });
   });
@@ -136,8 +139,9 @@ describe('app', () => {
       expect(
         mockUserInterfaceHandler.showImportSitesDialog,
       ).toHaveBeenCalledOnceWith(
-        'Import Sites by Child Network Code (123456789)',
+        'Import Sites by Child Network Code',
         "WHERE childNetworkCode = '123456789'",
+        true,
       );
     });
 
@@ -181,7 +185,7 @@ describe('app', () => {
 
       expect(
         mockUserInterfaceHandler.showImportSitesDialog,
-      ).toHaveBeenCalledOnceWith('Import Sites by PQL Query (pql)', 'pql');
+      ).toHaveBeenCalledOnceWith('Import Sites by PQL Query', 'pql', true);
     });
   });
 
@@ -300,6 +304,18 @@ describe('app', () => {
       ]);
       finishSitesImport('importId', mockDataHandler);
       expect(mockDataHandler.finishSitesImport).toHaveBeenCalledOnceWith(
+        'importId',
+      );
+    });
+  });
+
+  describe('cancelSitesImport', () => {
+    it('calls dataHandler.cancelSitesImport', () => {
+      const mockDataHandler = jasmine.createSpyObj('DataHandler', [
+        'cancelSitesImport',
+      ]);
+      cancelSitesImport('importId', mockDataHandler);
+      expect(mockDataHandler.cancelSitesImport).toHaveBeenCalledOnceWith(
         'importId',
       );
     });

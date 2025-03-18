@@ -21,9 +21,11 @@ import {setElementInnerHtml} from 'safevalues/dom';
 
 let importId = crypto.randomUUID();
 
-const statementQueue: Statement[] = [];
+let statementQueue: Statement[] = [];
 
 let elapsedTime = 0;
+
+let importActive = true;
 
 let activeRequests = 0;
 
@@ -31,21 +33,34 @@ let sitesLoaded = 0;
 
 let totalResults: number;
 
-function init(query: string) {
-  setInterval(() => {
-    elapsedTime++;
-    updateProgress();
-  }, 1000);
-  console.log('init', query);
+/**
+ * Initializes the import sites dialog.
+ * @param query The query to use for importing sites.
+ * @param importDetails The details of the import.
+ */
+function init(query: string, shouldDisplayQuery: boolean) {
+  if (shouldDisplayQuery) {
+    const queryElement = window.document.getElementById('query')!;
+    setElementInnerHtml(queryElement, sanitizeHtml(`PQL Query: ${query}`));
+    queryElement.style.display = 'block';
+  }
   google.script.run
+    .withFailureHandler(onErrorLoadingSites)
     .withSuccessHandler(onImportStartedSuccess)
     ['callFunction']('startSitesImport', importId, query);
+  setInterval(() => {
+    updateProgress();
+  }, 1000);
 }
 
 /**
  * Updates the progress bar and other UI elements.
  */
 function updateProgress() {
+  if (!importActive) {
+    return;
+  }
+  elapsedTime++;
   const minutes = Math.floor(elapsedTime / 60);
   const seconds = elapsedTime % 60;
   const elapsedTimeString = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
@@ -66,6 +81,28 @@ function updateProgress() {
 }
 
 /**
+ * Handles an error that occurs during the import process.
+ * @param error The error that occurred.
+ */
+function onErrorLoadingSites(error: unknown) {
+  console.error(error);
+  importActive = false;
+  // clear the queue
+  statementQueue = [];
+  setElementInnerHtml(
+    window.document.getElementById('total_results')!,
+    sanitizeHtml(`Total Results:`),
+  );
+  const errorElement = window.document.getElementById('error-message')!;
+  setElementInnerHtml(
+    errorElement,
+    sanitizeHtml(`Error loading sites: ${error}`),
+  );
+  errorElement.style.display = 'block';
+  google.script.run['callFunction']('cancelSitesImport', importId);
+}
+
+/**
  * Processes the statement queue by calling getSites for each statement.
  */
 function processStatementQueue() {
@@ -74,6 +111,7 @@ function processStatementQueue() {
     activeRequests++;
     google.script.run
       .withSuccessHandler(onSitesLoadedSuccess)
+      .withFailureHandler(onErrorLoadingSites)
       ['callFunction']('getSites', importId, statement);
   }
 }
@@ -88,6 +126,10 @@ function onImportStartedSuccess(result: {
   statements: Statement[];
 }) {
   totalResults = result.totalResults;
+  if (totalResults === 0) {
+    onErrorLoadingSites(new Error('No sites found.'));
+    return;
+  }
   statementQueue.push(...result['statements']);
   processStatementQueue();
 }
@@ -120,6 +162,7 @@ function onImportFinishedSuccess() {
 function onAllSitesLoaded() {
   google.script.run
     .withSuccessHandler(onImportFinishedSuccess)
+    .withFailureHandler(onErrorLoadingSites)
     ['callFunction']('finishSitesImport', importId);
 }
 

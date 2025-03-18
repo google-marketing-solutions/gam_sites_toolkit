@@ -78,11 +78,17 @@ export class UserInterfaceHandler {
    *
    * @param title The title of the dialog.
    * @param query The query to use for importing sites.
+   * @param description The description of the import.
    */
-  showImportSitesDialog(title: string, query: string): void {
+  showImportSitesDialog(
+    title: string,
+    query: string,
+    shouldDisplayQuery: boolean = false,
+  ): void {
     const selectedButton = this.ui.alert(
       title,
-      'Please be aware that imported data will be visible to anyone with ' +
+      (shouldDisplayQuery ? `PQL Query: ${query}\n\n` : '') +
+        'Please be aware that imported data will be visible to anyone with ' +
         'access to this Google Sheets file regardless of whether or not they ' +
         'have access to the data within Google Ad Manager. Do you wish to ' +
         'continue?',
@@ -91,7 +97,8 @@ export class UserInterfaceHandler {
     if (selectedButton === this.ui.Button.YES) {
       var htmlTemplate = this.createHtmlTemplateFn('import_dialog');
       htmlTemplate['query'] = JSON.stringify(query);
-      this.ui.showModalDialog(htmlTemplate.evaluate().setHeight(200), title);
+      htmlTemplate['shouldDisplayQuery'] = shouldDisplayQuery;
+      this.ui.showModalDialog(htmlTemplate.evaluate().setHeight(210), title);
     }
   }
 

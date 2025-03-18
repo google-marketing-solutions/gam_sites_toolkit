@@ -122,7 +122,7 @@ export function createMenu(
 export function onImportAllSitesSelected(
   userInterfaceHandler = getUserInterfaceHandler(),
 ): void {
-  userInterfaceHandler.showImportSitesDialog('Import All Sites', '');
+  userInterfaceHandler.showImportSitesDialog('Import All Sites', '', false);
 }
 
 /**
@@ -135,6 +135,7 @@ export function onImportFirstPartySitesSelected(
   userInterfaceHandler.showImportSitesDialog(
     'Import First Party Sites',
     "WHERE childNetworkCode = ''",
+    false,
   );
 }
 
@@ -148,6 +149,7 @@ export function onImportChildSitesSelected(
   userInterfaceHandler.showImportSitesDialog(
     'Import Child Sites',
     "WHERE childNetworkCode != ''",
+    false,
   );
 }
 
@@ -162,9 +164,11 @@ export function onImportSitesByChildNetworkCodeSelected(
     'Child Network Code',
     /^[0-9]+$/,
     (childNetworkCode: string) => {
+      const query = `WHERE childNetworkCode = '${childNetworkCode}'`;
       userInterfaceHandler.showImportSitesDialog(
-        `Import Sites by Child Network Code (${childNetworkCode})`,
-        `WHERE childNetworkCode = '${childNetworkCode}'`,
+        `Import Sites by Child Network Code`,
+        query,
+        true,
       );
     },
     (invalidChildNetworkCode: string) => {
@@ -184,8 +188,9 @@ export function onImportSitesByCustomQuerySelected(
 ): void {
   userInterfaceHandler.showInputPrompt('PQL Query', /.*/, (query: string) => {
     userInterfaceHandler.showImportSitesDialog(
-      `Import Sites by PQL Query (${query})`,
+      `Import Sites by PQL Query`,
       query,
+      true,
     );
   });
 }
@@ -280,12 +285,25 @@ export function finishSitesImport(
 }
 
 /**
+ * Cancels the sites import process.
+ * @param importId The ID of the import process.
+ * @param dataHandler The data handler to use.
+ */
+export function cancelSitesImport(
+  importId: string,
+  dataHandler = getDataHandler(),
+): void {
+  dataHandler.cancelSitesImport(importId);
+}
+
+/**
  * A map of functions that can be called from the client.
  */
 let callableFunctions: {[functionName: string]: (...args: any[]) => any} = {
   'startSitesImport': startSitesImport,
   'getSites': getSites,
   'finishSitesImport': finishSitesImport,
+  'cancelSitesImport': cancelSitesImport,
 };
 
 /**

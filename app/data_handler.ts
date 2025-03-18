@@ -170,4 +170,15 @@ export class DataHandler {
     sheet.showSheet();
     sheet.activate();
   }
+
+  /**
+   * Cancels the sites import process.
+   * @param importId The ID of the import process.
+   */
+  cancelSitesImport(importId: string) {
+    const sheet = this.activeSpreadsheet.getSheetByName(importId);
+    if (sheet) {
+      this.activeSpreadsheet.deleteSheet(sheet);
+    }
+  }
 }
