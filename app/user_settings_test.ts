@@ -63,4 +63,35 @@ describe('UserSettings', () => {
       );
     });
   });
+
+  describe('childPublishers', () => {
+    it('returns null when no property is set', () => {
+      mockUserProperties.getProperty.and.returnValue(null);
+      const settings = new UserSettings(mockUserProperties);
+      expect(settings.childPublishers).toEqual(null);
+    });
+
+    const publishers = {
+      '123': {id: '1', name: 'Child Publisher 1', childNetworkCode: '123'},
+      '456': {id: '2', name: 'Child Publisher 2', childNetworkCode: '456'},
+      '789': {id: '3', name: 'Child Publisher 3', childNetworkCode: '789'},
+    };
+
+    it('returns the child publishers map when set', () => {
+      mockUserProperties.getProperty.and.returnValue(
+        JSON.stringify(publishers),
+      );
+      const settings = new UserSettings(mockUserProperties);
+      expect(settings.childPublishers).toEqual(publishers);
+    });
+
+    it('saves property when set', () => {
+      const settings = new UserSettings(mockUserProperties);
+      settings.childPublishers = publishers;
+      expect(mockUserProperties.setProperty).toHaveBeenCalledOnceWith(
+        'childPublishers',
+        JSON.stringify(publishers),
+      );
+    });
+  });
 });

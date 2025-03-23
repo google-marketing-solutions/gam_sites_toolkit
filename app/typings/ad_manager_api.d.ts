@@ -54,8 +54,67 @@ export declare interface Site {
   disapprovalReasons: DisapprovalReason[];
 }
 
-export declare interface SitesPage {
+export declare interface ChildPublisher {
+  approvedDelegationType: 'UNKNOWN' | 'MANAGE_ACCOUNT' | 'MANAGE_INVENTORY';
+  proposedDelegationType: 'UNKNOWN' | 'MANAGE_ACCOUNT' | 'MANAGE_INVENTORY';
+  status: 'UNKNOWN' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN';
+  accountStatus:
+    | 'UNKNOWN'
+    | 'INVITED'
+    | 'DECLINED'
+    | 'PENDING_GOOGLE_APPROVAL'
+    | 'APPROVED'
+    | 'CLOSED_POLICY_VIOLATION'
+    | 'CLOSED_INVALID_ACTIVITY'
+    | 'CLOSED_BY_PUBLISHER'
+    | 'DISAPPROVED_INELIGIBLE'
+    | 'DISAPPROVED_DUPLICATE_ACCOUNT'
+    | 'EXPIRED'
+    | 'INACTIVE'
+    | 'DEACTIVATED_BY_AD_MANAGER';
+  childNetworkCode: string;
+  sellerId: string;
+  proposedRevenueShareMillipercent: number;
+  onboardingTasks: (
+    | 'UNKNOWN'
+    | 'BILLING_PROFILE_CREATION'
+    | 'PHONE_PIN_VERIFICATION'
+    | 'AD_MANAGER_ACCOUNT_SETUP'
+  )[];
+}
+
+export declare interface Company {
+  id: string;
+  name: string;
+  type:
+    | 'HOUSE_ADVERTISER'
+    | 'HOUSE_AGENCY'
+    | 'ADVERTISER'
+    | 'AGENCY'
+    | 'AD_NETWORK'
+    | 'PARTNER'
+    | 'CHILD_PUBLISHER'
+    | 'VIEWABILITY_PROVIDER'
+    | 'UNKNOWN';
+  address: string;
+  email: string;
+  faxPhone: string;
+  primaryPhone: string;
+  externalId: string;
+  comment: string;
+  creditStatus: 'ACTIVE' | 'ON_HOLD' | 'CREDIT_STOP' | 'INACTIVE' | 'BLOCKED';
+  appliedLabels: {labelId: string; isNegated: boolean};
+  primaryContactId: number;
+  appliedTeamIds: number[];
+  thirdPartyCompanyId: number;
+  lastModifiedDateTime: AdManagerDateTime;
+  childPublisher: ChildPublisher;
+  // Not defining types for ViewabilityProvider as its not used by the toolkit.
+  // viewabilityProvider: ViewabilityProvider;
+}
+
+export declare interface StatementResult<T> {
   totalResultSetSize: number;
   startIndex: number;
-  results: Site[];
+  results: T[];
 }

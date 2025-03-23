@@ -21,7 +21,7 @@
 
 import {
   Site,
-  SitesPage,
+  StatementResult,
 } from 'google3/third_party/professional_services/solutions/child_sites_toolkit/app/typings/ad_manager_api';
 import {AdManagerServerFault} from 'google3/third_party/professional_services/solutions/gam_apps_script/ad_manager_error';
 import {AdManagerService} from 'google3/third_party/professional_services/solutions/gam_apps_script/ad_manager_service';
@@ -67,7 +67,7 @@ export class DataHandler {
     const {totalResultSetSize} = this.siteService.performOperation(
       'getSitesByStatement',
       {query, values: statement.values},
-    ) as SitesPage;
+    ) as StatementResult<Site>;
     return totalResultSetSize;
   }
 
@@ -139,12 +139,12 @@ export class DataHandler {
     statement: Statement,
     retries: number = 3,
   ): number {
-    let sitesPage: SitesPage;
+    let sitesPage: StatementResult<Site>;
     try {
       sitesPage = this.siteService.performOperation(
         'getSitesByStatement',
         statement,
-      ) as SitesPage;
+      ) as StatementResult<Site>;
     } catch (e) {
       console.log('getSites catch', e);
       if (e instanceof AdManagerServerFault && retries > 0) {

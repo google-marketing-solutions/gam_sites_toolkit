@@ -15,12 +15,26 @@
  * limitations under the License.
  */
 
+
+/**
+ * A map of child publishers indexed by child network code.
+ */
+export interface ChildPublisherMap {
+  [childNetworkCode: string]: {
+    id: string;
+    name: string;
+    childNetworkCode: string;
+  };
+}
+
 /**
  * Manages user settings for the Child Sites Toolkit.
  */
 export class UserSettings {
   private readonly networkCodeKey = 'networkCode';
   private readonly apiVersionKey = 'apiVersion';
+  private readonly childPublishersKey = 'childPublishers';
+  private readonly activeImportKey = 'activeImport';
 
   static readonly DEFAULT_API_VERSION = 'v202411';
 
@@ -61,5 +75,30 @@ export class UserSettings {
    */
   set adManagerApiVersion(apiVersion: string) {
     this.userProperties.setProperty(this.apiVersionKey, apiVersion);
+  }
+
+  /**
+   * Retrieves the cached child publishers for the current user's network.
+   */
+  get childPublishers(): ChildPublisherMap | null {
+    const childPublishers = this.userProperties.getProperty(
+      this.childPublishersKey,
+    );
+    if (!childPublishers) {
+      return null;
+    }
+    return JSON.parse(childPublishers) as ChildPublisherMap;
+  }
+
+  /**
+   * Configures the cached child publishers for the current user's network.
+   *
+   * @param childPublishers The child publishers to value to set.
+   */
+  set childPublishers(childPublishers: ChildPublisherMap) {
+    this.userProperties.setProperty(
+      this.childPublishersKey,
+      JSON.stringify(childPublishers),
+    );
   }
 }
