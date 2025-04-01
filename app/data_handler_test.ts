@@ -18,48 +18,83 @@
 import {AdManagerServerFault} from 'google3/third_party/professional_services/solutions/gam_apps_script/ad_manager_error';
 import {AdManagerService} from 'google3/third_party/professional_services/solutions/gam_apps_script/ad_manager_service';
 import {DataHandler} from './data_handler';
+import {Site, StatementResult} from './typings/ad_manager_api';
 
 describe('DataHandler', () => {
-  let mockSpreadsheet: jasmine.SpyObj<GoogleAppsScript.Spreadsheet.Spreadsheet>;
-  let mockService: jasmine.SpyObj<AdManagerService>;
+  let mockSiteService: jasmine.SpyObj<AdManagerService>;
+  let mockCompanyService: jasmine.SpyObj<AdManagerService>;
 
   beforeEach(() => {
-    mockSpreadsheet = jasmine.createSpyObj('Spreadsheet', [
-      'getSheetByName',
-      'insertSheet',
-      'hideSheet',
-      'deleteSheet',
-    ]);
-    mockService = jasmine.createSpyObj('AdManagerService', [
+    mockSiteService = jasmine.createSpyObj('AdManagerService', [
       'performOperation',
     ]);
-    const mockRange = jasmine.createSpyObj('Range', ['setValues']);
-    const mockSheet = jasmine.createSpyObj('Sheet', [
-      'getRange',
-      'hideSheet',
-      'setName',
-      'showSheet',
-      'activate',
+    mockSiteService.performOperation.and.returnValue({
+      results: [],
+      startIndex: 0,
+      totalResultSetSize: 250,
+    });
+    mockCompanyService = jasmine.createSpyObj('AdManagerService', [
+      'performOperation',
     ]);
-    mockSheet.getRange.and.returnValue(mockRange);
-    mockSpreadsheet.getSheetByName.and.returnValue(mockSheet);
-    mockSpreadsheet.insertSheet.and.returnValue(mockSheet);
-
-    mockService.performOperation.and.returnValue({
+    mockCompanyService.performOperation.and.returnValue({
       results: [],
       startIndex: 0,
       totalResultSetSize: 250,
     });
   });
 
-  describe('startSitesImport', () => {
+  describe('fetchChildPublishers', () => {
+    it('returns a map of child publishers', () => {
+      mockCompanyService.performOperation.and.returnValue({
+        results: [
+          {
+            id: '1',
+            name: 'Child Publisher 1',
+            childPublisher: {childNetworkCode: '123'},
+          },
+          {
+            id: '2',
+            name: 'Child Publisher 2',
+            childPublisher: {childNetworkCode: '456'},
+          },
+          {
+            id: '3',
+            name: 'Child Publisher 3',
+            childPublisher: {childNetworkCode: '789'},
+          },
+        ],
+        startIndex: 0,
+        totalResultSetSize: 3,
+      });
+      const dataHandler = new DataHandler(mockSiteService, mockCompanyService);
+      dataHandler.fetchChildPublishers();
+      expect(dataHandler.fetchChildPublishers()).toEqual({
+        '123': {id: '1', name: 'Child Publisher 1', childNetworkCode: '123'},
+        '456': {id: '2', name: 'Child Publisher 2', childNetworkCode: '456'},
+        '789': {id: '3', name: 'Child Publisher 3', childNetworkCode: '789'},
+      });
+    });
+
+    it('uses getCompaniesByStatement to fetch child publishers', () => {
+      const dataHandler = new DataHandler(mockSiteService, mockCompanyService);
+      dataHandler.fetchChildPublishers();
+      expect(mockCompanyService.performOperation).toHaveBeenCalledOnceWith(
+        'getCompaniesByStatement',
+        {
+          query: "WHERE type = 'CHILD_PUBLISHER'",
+        },
+      );
+    });
+  });
+
+  describe('getStatementsAndTotalResultsForSitesStatement', () => {
     it('throws an error if the query contains limit', () => {
       const statement = {
         query: 'SELECT * FROM sites LIMIT 100',
       };
-      const dataHandler = new DataHandler(mockService, mockSpreadsheet);
+      const dataHandler = new DataHandler(mockSiteService, mockCompanyService);
       expect(() => {
-        dataHandler.startSitesImport('importId', statement);
+        dataHandler.getStatementsAndTotalResultsForSitesStatement(statement);
       }).toThrowError('Limit and offset are not supported');
     });
 
@@ -67,24 +102,17 @@ describe('DataHandler', () => {
       const statement = {
         query: 'SELECT * FROM sites OFFSET 100',
       };
-      const dataHandler = new DataHandler(mockService, mockSpreadsheet);
+      const dataHandler = new DataHandler(mockSiteService, mockCompanyService);
       expect(() => {
-        dataHandler.startSitesImport('importId', statement);
+        dataHandler.getStatementsAndTotalResultsForSitesStatement(statement);
       }).toThrowError('Limit and offset are not supported');
     });
 
-    it('creates a hidden sheet with headers for the import', () => {
-      const dataHandler = new DataHandler(mockService, mockSpreadsheet);
-      dataHandler.startSitesImport('importId', {query: ''});
-      expect(mockSpreadsheet.insertSheet).toHaveBeenCalledTimes(1);
-      const sheet = mockSpreadsheet.insertSheet();
-      expect(sheet.hideSheet).toHaveBeenCalledTimes(1);
-      expect(sheet.getRange(1, 1, 1, 7).setValues).toHaveBeenCalledTimes(1);
-    });
-
     it('returns a list of paginated statements and total results', () => {
-      const dataHandler = new DataHandler(mockService, mockSpreadsheet);
-      const result = dataHandler.startSitesImport('importId', {query: 'query'});
+      const dataHandler = new DataHandler(mockSiteService, mockCompanyService);
+      const result = dataHandler.getStatementsAndTotalResultsForSitesStatement({
+        query: 'query',
+      });
       expect(result.statements).toEqual([
         {
           query: 'query LIMIT 100 OFFSET 0',
@@ -101,70 +129,40 @@ describe('DataHandler', () => {
       ]);
       expect(result.totalResults).toBe(250);
     });
+  });
 
-    describe('getSites', () => {
-      it('calls getSitesByStatement with the provided statement', () => {
-        const dataHandler = new DataHandler(mockService, mockSpreadsheet);
-        const statement = {
-          query: 'query',
-        };
-        dataHandler.getSites('importId', statement);
-        expect(mockService.performOperation).toHaveBeenCalledWith(
+  describe('getSites', () => {
+    it('calls getSitesByStatement with the provided statement', () => {
+      const dataHandler = new DataHandler(mockSiteService, mockCompanyService);
+      const statement = {
+        query: 'query',
+      };
+      dataHandler.getSites(statement);
+      expect(dataHandler.getSites(statement)).toEqual(
+        mockSiteService.performOperation(
           'getSitesByStatement',
           statement,
-        );
-      });
-
-      it('adds the sites to the sheet', () => {
-        const dataHandler = new DataHandler(mockService, mockSpreadsheet);
-        dataHandler.getSites('importId', {query: 'query'});
-        const sheet = mockSpreadsheet.getSheetByName('importId');
-        expect(sheet?.getRange(2, 1, 0, 7).setValues).toHaveBeenCalled();
-      });
-
-      it('retries the request if it fails', () => {
-        let errorThrown = false;
-        mockService.performOperation.and.callFake(() => {
-          if (!errorThrown) {
-            errorThrown = true;
-            throw new AdManagerServerFault({message: 'error', errors: []});
-          } else {
-            return {
-              results: [],
-              startIndex: 0,
-              totalResultSetSize: 250,
-            };
-          }
-        });
-        const dataHandler = new DataHandler(mockService, mockSpreadsheet);
-        dataHandler.getSites('importId', {query: 'query'}, 1);
-        expect(mockService.performOperation).toHaveBeenCalledTimes(2);
-      });
+        ) as StatementResult<Site>,
+      );
     });
 
-    describe('finishSitesImport', () => {
-      it('changes the sheet name', () => {
-        const dataHandler = new DataHandler(mockService, mockSpreadsheet);
-        dataHandler.finishSitesImport('importId');
-        const sheet = mockSpreadsheet.getSheetByName('importId');
-        expect(sheet?.setName).toHaveBeenCalled();
+    it('retries the request if it fails', () => {
+      let errorThrown = false;
+      mockSiteService.performOperation.and.callFake(() => {
+        if (!errorThrown) {
+          errorThrown = true;
+          throw new AdManagerServerFault({message: 'error', errors: []});
+        } else {
+          return {
+            results: [],
+            startIndex: 0,
+            totalResultSetSize: 250,
+          };
+        }
       });
-
-      it('shows the sheet', () => {
-        const dataHandler = new DataHandler(mockService, mockSpreadsheet);
-        dataHandler.finishSitesImport('importId');
-        const sheet = mockSpreadsheet.getSheetByName('importId');
-        expect(sheet?.showSheet).toHaveBeenCalled();
-        expect(sheet?.activate).toHaveBeenCalled();
-      });
-    });
-
-    describe('cancelSitesImport', () => {
-      it('deletes the sheet', () => {
-        const dataHandler = new DataHandler(mockService, mockSpreadsheet);
-        dataHandler.cancelSitesImport('importId');
-        expect(mockSpreadsheet.deleteSheet).toHaveBeenCalled();
-      });
+      const dataHandler = new DataHandler(mockSiteService, mockCompanyService);
+      dataHandler.getSites({query: 'query'}, 1);
+      expect(mockSiteService.performOperation).toHaveBeenCalledTimes(2);
     });
   });
 });

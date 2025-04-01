@@ -23,9 +23,10 @@
 import {AdManagerClient} from 'google3/third_party/professional_services/solutions/gam_apps_script/ad_manager_client';
 import {Statement} from 'google3/third_party/professional_services/solutions/gam_apps_script/typings/statement';
 import {DataHandler} from './data_handler';
+import {SpreadsheetHandler} from './spreadsheet_handler';
 import {Site} from './typings/ad_manager_api';
 import {Menu, UserInterfaceHandler} from './user_interface_handler';
-import {UserSettings} from './user_settings';
+import {ChildPublisherMap, UserSettings} from './user_settings';
 
 const MENU_ITEM_IMPORT_ALL_SITES = 'onImportAllSitesSelected';
 const MENU_ITEM_IMPORT_FIRST_PARTY_SITES = 'onImportFirstPartySitesSelected';
@@ -37,11 +38,18 @@ const MENU_ITEM_IMPORT_SITES_BY_CUSTOM_QUERY =
 const MENU_ITEM_SHOW_API_VERSION_PROMPT = 'showApiVersionPrompt';
 const MENU_ITEM_SHOW_NETWORK_CODE_PROMPT = 'showNetworkCodePrompt';
 
+const CONFIRM_IMPORT_DIALOG_MESSAGE =
+  'Imported data will be visible to anyone with access to this Google Sheets ' +
+  'file regardless of whether or not they have access to the data within ' +
+  'Google Ad Manager. Do you wish to continue?';
+
 let userSettings: UserSettings;
 
 let userInterfaceHandler: UserInterfaceHandler;
 
 let dataHandler: DataHandler;
+
+let spreadsheetHandler: SpreadsheetHandler;
 
 /**
  * Returns the user settings, creating them if they don't exist.
@@ -83,9 +91,20 @@ function getDataHandler(userSettings = getUserSettings()) {
       {'Is-Internal-User': 'true'},
     );
     const siteService = client.getService('SiteService');
-    dataHandler = new DataHandler(siteService);
+    const companyService = client.getService('CompanyService');
+    dataHandler = new DataHandler(siteService, companyService);
   }
   return dataHandler;
+}
+
+/**
+ * Returns the spreadsheet handler, creating it if it doesn't exist.
+ */
+function getSpreadsheetHandler(activeSpreadsheet = SpreadsheetApp.getActive()) {
+  if (!spreadsheetHandler) {
+    spreadsheetHandler = new SpreadsheetHandler(activeSpreadsheet);
+  }
+  return spreadsheetHandler;
 }
 
 /**
@@ -116,59 +135,160 @@ export function createMenu(
 }
 
 /**
+ * Starts the process of importing sites.
+ * @param query The PQL query to use to filter sites.
+ * @param dialogTitle The title of the dialog to show.
+ * @param dialogMessage The message to show in the dialog.
+ * @param sheetTitle The title of the sheet to create.
+ * @param userSettings The user settings to use.
+ * @param dataHandler The data handler to use.
+ * @param userInterfaceHandler The user interface handler to use.
+ * @param spreadsheetHandler The spreadsheet handler to use.
+ */
+function startSitesImport(
+  query: string,
+  dialogTitle: string,
+  dialogMessage: string | null,
+  sheetTitle: string,
+  userSettings = getUserSettings(),
+  dataHandler = getDataHandler(),
+  userInterfaceHandler = getUserInterfaceHandler(),
+  spreadsheetHandler = getSpreadsheetHandler(),
+) {
+  const {statements, totalResults} =
+    dataHandler.getStatementsAndTotalResultsForSitesStatement({
+      query,
+    });
+  let message = dialogMessage
+    ? `${dialogMessage} (${totalResults} results)\n\n`
+    : `Total results: ${totalResults}\n\n`;
+  message += CONFIRM_IMPORT_DIALOG_MESSAGE;
+  const userConfirmed = userInterfaceHandler.showYesNoDialog(
+    dialogTitle,
+    message,
+  );
+  if (!userConfirmed) {
+    return;
+  }
+  const timeString = new Date().toLocaleString();
+  spreadsheetHandler.createSheet(sheetTitle);
+  spreadsheetHandler.insertValuesIntoSheet(sheetTitle, [
+    ['Site URL', 'Child Publisher', 'Approval Status', 'Status Details'],
+  ]);
+  userInterfaceHandler.showImportSitesDialog(
+    sheetTitle,
+    dialogTitle,
+    statements,
+    totalResults,
+    `Total results: ${totalResults}`,
+  );
+}
+
+/**
  * Starts an import of all sites.
+ * @param userSettings The user settings to use.
+ * @param dataHandler The data handler to use.
+ * @param spreadsheetHandler The spreadsheet handler to use.
  * @param userInterfaceHandler The user interface handler to use.
  */
 export function onImportAllSitesSelected(
+  userSettings = getUserSettings(),
+  dataHandler = getDataHandler(),
+  spreadsheetHandler = getSpreadsheetHandler(),
   userInterfaceHandler = getUserInterfaceHandler(),
 ): void {
-  userInterfaceHandler.showImportSitesDialog('Import All Sites', '', false);
+  const timeString = new Date().toLocaleString();
+  startSitesImport(
+    '',
+    'Import All Sites',
+    null,
+    `[${userSettings.networkCode}] All Sites (${timeString})`,
+    userSettings,
+    dataHandler,
+    userInterfaceHandler,
+    spreadsheetHandler,
+  );
 }
 
 /**
  * Starts an import of first party sites.
+ * @param userSettings The user settings to use.
+ * @param dataHandler The data handler to use.
+ * @param spreadsheetHandler The spreadsheet handler to use.
  * @param userInterfaceHandler The user interface handler to use.
  */
 export function onImportFirstPartySitesSelected(
+  userSettings = getUserSettings(),
+  dataHandler = getDataHandler(),
+  spreadsheetHandler = getSpreadsheetHandler(),
   userInterfaceHandler = getUserInterfaceHandler(),
 ): void {
-  userInterfaceHandler.showImportSitesDialog(
-    'Import First Party Sites',
+  const timeString = new Date().toLocaleString();
+  startSitesImport(
     "WHERE childNetworkCode = ''",
-    false,
+    'Import First Party Sites',
+    null,
+    `[${userSettings.networkCode}] First Party Sites (${timeString})`,
+    userSettings,
+    dataHandler,
+    userInterfaceHandler,
+    spreadsheetHandler,
   );
 }
 
 /**
  * Starts an import of child sites.
+ * @param userSettings The user settings to use.
+ * @param dataHandler The data handler to use.
+ * @param spreadsheetHandler The spreadsheet handler to use.
  * @param userInterfaceHandler The user interface handler to use.
  */
 export function onImportChildSitesSelected(
+  userSettings = getUserSettings(),
+  dataHandler = getDataHandler(),
+  spreadsheetHandler = getSpreadsheetHandler(),
   userInterfaceHandler = getUserInterfaceHandler(),
 ): void {
-  userInterfaceHandler.showImportSitesDialog(
-    'Import Child Sites',
+  const timeString = new Date().toLocaleString();
+  startSitesImport(
     "WHERE childNetworkCode != ''",
-    false,
+    'Import Child Sites',
+    null,
+    `[${userSettings.networkCode}] Child Sites (${timeString})`,
+    userSettings,
+    dataHandler,
+    userInterfaceHandler,
+    spreadsheetHandler,
   );
 }
 
 /**
  * Starts an import of sites by child network code.
+ * @param userSettings The user settings to use.
+ * @param dataHandler The data handler to use.
+ * @param spreadsheetHandler The spreadsheet handler to use.
  * @param userInterfaceHandler The user interface handler to use.
  */
 export function onImportSitesByChildNetworkCodeSelected(
+  userSettings = getUserSettings(),
+  dataHandler = getDataHandler(),
+  spreadsheetHandler = getSpreadsheetHandler(),
   userInterfaceHandler = getUserInterfaceHandler(),
 ): void {
   userInterfaceHandler.showInputPrompt(
     'Child Network Code',
     /^[0-9]+$/,
     (childNetworkCode: string) => {
-      const query = `WHERE childNetworkCode = '${childNetworkCode}'`;
-      userInterfaceHandler.showImportSitesDialog(
-        `Import Sites by Child Network Code`,
-        query,
-        true,
+      const timeString = new Date().toLocaleString();
+      startSitesImport(
+        `WHERE childNetworkCode = '${childNetworkCode}'`,
+        'Import Sites',
+        `Child Network Code: ${childNetworkCode}`,
+        `[${userSettings.networkCode}] Child Sites (${childNetworkCode}) (${timeString})`,
+        userSettings,
+        dataHandler,
+        userInterfaceHandler,
+        spreadsheetHandler,
       );
     },
     (invalidChildNetworkCode: string) => {
@@ -181,22 +301,36 @@ export function onImportSitesByChildNetworkCodeSelected(
 
 /**
  * Starts an import of sites by custom PQL query.
+ * @param userSettings The user settings to use.
+ * @param dataHandler The data handler to use.
+ * @param spreadsheetHandler The spreadsheet handler to use.
  * @param userInterfaceHandler The user interface handler to use.
  */
 export function onImportSitesByCustomQuerySelected(
+  userSettings = getUserSettings(),
+  dataHandler = getDataHandler(),
+  spreadsheetHandler = getSpreadsheetHandler(),
   userInterfaceHandler = getUserInterfaceHandler(),
 ): void {
   userInterfaceHandler.showInputPrompt('PQL Query', /.*/, (query: string) => {
-    userInterfaceHandler.showImportSitesDialog(
-      `Import Sites by PQL Query`,
+    const timeString = new Date().toLocaleString();
+    startSitesImport(
       query,
-      true,
+      'Import Sites by Custom Query',
+      `Query: ${query}`,
+      `[${userSettings.networkCode}] ${query} (${timeString})`,
+      userSettings,
+      dataHandler,
+      userInterfaceHandler,
+      spreadsheetHandler,
     );
   });
 }
 
 /**
  * Shows the network code prompt.
+ * @param userInterfaceHandler The user interface handler to use.
+ * @param userSettings The user settings to use.
  * @param userInterfaceHandler The user interface handler to use.
  */
 export function showNetworkCodePrompt(
@@ -220,6 +354,8 @@ export function showNetworkCodePrompt(
 /**
  * Shows the API version prompt.
  * @param userInterfaceHandler The user interface handler to use.
+ * @param userSettings The user settings to use.
+ * @param userInterfaceHandler The user interface handler to use.
  */
 export function showApiVersionPrompt(
   userInterfaceHandler = getUserInterfaceHandler(),
@@ -240,67 +376,125 @@ export function showApiVersionPrompt(
 }
 
 /**
- * Starts process to import child sites.
- * @param importId The ID of the import process.
- * @param query The PQL query to use to filter sites.
- * @param dataHandler The data handler to use.
- * @return An object containing the statements and total results.
+ * Creates a row for a site.
+ * @param site The site to create a row for.
+ * @param childPublishers A map of child publishers.
+ * @return An array of strings representing the row.
+ *
+ * The returned array contains the following values:
+ * - Site URL
+ * - Child Publisher (Name and Network Code)
+ * - Approval Status
+ * - Disapproval Reasons
  */
-export function startSitesImport(
-  importId: string,
-  query: string = '',
-  dataHandler = getDataHandler(),
-): {
-  statements: Statement[];
-  totalResults: number;
-} {
-  return dataHandler.startSitesImport(importId, {'query': query});
+function createRowForSite(
+  site: Site,
+  childPublishers: ChildPublisherMap,
+): string[] {
+  const childPublisher = childPublishers[site.childNetworkCode];
+  let childPublisherEntry;
+  if (site.childNetworkCode) {
+    const childPublisherName =
+      childPublisher?.name ?? '[Child Publisher Name Not Found]';
+    childPublisherEntry = `${childPublisherName} (${site.childNetworkCode})`;
+  } else {
+    childPublisherEntry = '[First Party]';
+  }
+
+  let approvalStatusEntry;
+  switch (site.approvalStatus) {
+    case 'DRAFT':
+      approvalStatusEntry = 'Requires review';
+      break;
+    case 'APPROVED':
+      approvalStatusEntry = 'Ready';
+      break;
+    case 'DISAPPROVED':
+      approvalStatusEntry = 'Needs attention';
+      break;
+    case 'UNCHECKED':
+    case 'REQUIRES_REVIEW':
+      approvalStatusEntry = 'Getting ready';
+      break;
+    default:
+      approvalStatusEntry = 'Unknown';
+      break;
+  }
+  const disapprovalReasonsEntry = (site.disapprovalReasons ?? [])
+    .filter(
+      (r) => /** only keep non-empty strings */ r.details && r.details.trim(),
+    )
+    .map((r) => r.details.trim())
+    .join(', ');
+
+  return [
+    site.url,
+    childPublisherEntry,
+    approvalStatusEntry,
+    disapprovalReasonsEntry,
+  ];
 }
 
 /**
  * Gets sites for a given import ID and statement.
- * @param importId The ID of the import process.
+ * @param sheetTitle The title of the sheet for the import process.
  * @param statement The PQL Statement to use to filter sites.
+ * @param userSettings The user settings to use.
  * @param dataHandler The data handler to use.
  * @return The number of sites returned.
  */
 export function getSites(
-  importId: string,
+  sheetTitle: string,
   statement: Statement,
+  userSettings = getUserSettings(),
   dataHandler = getDataHandler(),
+  spreadsheetHandler = getSpreadsheetHandler(),
 ): number {
-  return dataHandler.getSites(importId, statement);
+  const sitesPage = dataHandler.getSites(statement);
+  const childPublishers =
+    userSettings.childPublishers ?? dataHandler.fetchChildPublishers();
+
+  const rows = sitesPage.results.map((site) =>
+    createRowForSite(site, childPublishers),
+  );
+  spreadsheetHandler.insertValuesIntoSheet(
+    sheetTitle,
+    rows,
+    sitesPage.startIndex + 2,
+  );
+  return sitesPage.results.length;
 }
 
 /**
  * Finishes the sites import process.
- * @param importId The ID of the import process.
+ * @param sheetTitle The title of the sheet for the import process.
  * @param dataHandler The data handler to use.
  */
 export function finishSitesImport(
-  importId: string,
+  sheetTitle: string,
   dataHandler = getDataHandler(),
+  spreadsheetHandler = getSpreadsheetHandler(),
 ): void {
-  dataHandler.finishSitesImport(importId);
+  spreadsheetHandler.activateSheet(sheetTitle);
 }
 
 /**
  * Cancels the sites import process.
- * @param importId The ID of the import process.
+ * @param sheetTitle The title of the sheet for the import process.
  * @param dataHandler The data handler to use.
  */
 export function cancelSitesImport(
-  importId: string,
-  dataHandler = getDataHandler(),
+  sheetTitle: string,
+  userSettings = getUserSettings(),
+  spreadsheetHandler = getSpreadsheetHandler(),
 ): void {
-  dataHandler.cancelSitesImport(importId);
+  spreadsheetHandler.deleteSheet(sheetTitle);
 }
 
 /**
  * A map of functions that can be called from the client.
  */
 let callableFunctions: {[functionName: string]: (...args: any[]) => any} = {
-  'startSitesImport': startSitesImport,
   'getSites': getSites,
   'finishSitesImport': finishSitesImport,
   'cancelSitesImport': cancelSitesImport,

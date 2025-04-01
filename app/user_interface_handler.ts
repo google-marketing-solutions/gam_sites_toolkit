@@ -18,6 +18,7 @@
 /**
  * @fileoverview Handles user interface interactions.
  */
+import {Statement} from 'google3/third_party/professional_services/solutions/gam_apps_script/typings/statement';
 import {UserSettings} from './user_settings';
 
 /**
@@ -74,32 +75,42 @@ export class UserInterfaceHandler {
   }
 
   /**
-   * Shows the import sites dialog.
+   * Shows a yes/no dialog to the user.
    *
    * @param title The title of the dialog.
-   * @param query The query to use for importing sites.
-   * @param description The description of the import.
+   * @param message The message to display in the dialog.
+   * @return True if the user clicked "Yes", false otherwise.
    */
-  showImportSitesDialog(
-    title: string,
-    query: string,
-    shouldDisplayQuery: boolean = false,
-  ): void {
+  showYesNoDialog(title: string, message: string): boolean {
     const selectedButton = this.ui.alert(
       title,
-      (shouldDisplayQuery ? `PQL Query: ${query}\n\n` : '') +
-        'Please be aware that imported data will be visible to anyone with ' +
-        'access to this Google Sheets file regardless of whether or not they ' +
-        'have access to the data within Google Ad Manager. Do you wish to ' +
-        'continue?',
+      message,
       this.ui.ButtonSet.YES_NO,
     );
-    if (selectedButton === this.ui.Button.YES) {
-      var htmlTemplate = this.createHtmlTemplateFn('import_dialog');
-      htmlTemplate['query'] = JSON.stringify(query);
-      htmlTemplate['shouldDisplayQuery'] = shouldDisplayQuery;
-      this.ui.showModalDialog(htmlTemplate.evaluate().setHeight(210), title);
-    }
+    return selectedButton === this.ui.Button.YES;
+  }
+
+  /**
+   * Shows the import sites dialog.
+   * @param importId The ID of the import.
+   * @param title The title of the dialog
+   * @param statements The statements to import
+   * @param totalResults The total number of results
+   * @param details Additional details that should be displayed in the dialog.
+   */
+  showImportSitesDialog(
+    importId: string,
+    title: string,
+    statements: Statement[],
+    totalResults: number,
+    details: string = '',
+  ): void {
+    var htmlTemplate = this.createHtmlTemplateFn('import_dialog');
+    htmlTemplate['importId'] = importId;
+    htmlTemplate['statements'] = JSON.stringify(statements);
+    htmlTemplate['totalResults'] = totalResults;
+    htmlTemplate['details'] = details;
+    this.ui.showModalDialog(htmlTemplate.evaluate().setHeight(210), title);
   }
 
   /**

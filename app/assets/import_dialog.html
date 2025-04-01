@@ -35,7 +35,7 @@
       </div>
 
       <div class="info-section">
-        <div class="info-item" id="query" style="display: none;"></div>
+        <div class="info-item" id="details" style="display: none;"></div>
         <div class="info-item" id="elapsed_time">Elapsed Time: 0:00</div>
         <div class="info-item" id="sites_loaded">Sites Loaded: 0</div>
         <div class="info-item" id="total_results">Total Results: Loading...</div>
@@ -45,8 +45,10 @@
   </div>
   </body>
   <script>
-    const query = JSON.parse("<?= query ?>");
-    const shouldDisplayQuery = JSON.parse("<?= shouldDisplayQuery ?>");
-    init(query, shouldDisplayQuery);
+    const importId = "<?= importId ?>";
+    const statements = JSON.parse("<?= statements ?>");
+    const totalResults = Number("<?= totalResults ?>");
+    const details = "<?= details ?>";
+    init(importId, statements, totalResults, details);
   </script>
 </html>

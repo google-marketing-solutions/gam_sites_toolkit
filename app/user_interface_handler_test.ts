@@ -49,7 +49,7 @@ describe('UserInterfaceHandler', () => {
   });
 
   describe('createMenu', () => {
-    it('creates a menu with th given name', () => {
+    it('creates a menu with the given name', () => {
       const handler = new UserInterfaceHandler(
         mockUi,
         mockCreateHtmlTemplateFn,
@@ -116,6 +116,30 @@ describe('UserInterfaceHandler', () => {
 
       const mockMenu = mockUi.createMenu.calls.mostRecent().returnValue;
       expect(mockMenu.addToUi).toHaveBeenCalled();
+    });
+  });
+
+  describe('showYesNoDialog', () => {
+    it('returns true if the user selects YES', () => {
+      mockUi.alert.and.returnValue(
+        'YES' as unknown as GoogleAppsScript.Base.Button,
+      );
+      const handler = new UserInterfaceHandler(
+        mockUi,
+        mockCreateHtmlTemplateFn,
+      );
+      expect(handler.showYesNoDialog('Title', 'Message')).toBeTrue();
+    });
+
+    it('returns false if the user selects NO', () => {
+      mockUi.alert.and.returnValue(
+        'NO' as unknown as GoogleAppsScript.Base.Button,
+      );
+      const handler = new UserInterfaceHandler(
+        mockUi,
+        mockCreateHtmlTemplateFn,
+      );
+      expect(handler.showYesNoDialog('Title', 'Message')).toBeFalse();
     });
   });
 });

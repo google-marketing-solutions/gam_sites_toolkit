@@ -19,7 +19,7 @@ import {Statement} from 'google3/third_party/professional_services/solutions/gam
 import {sanitizeHtml} from 'safevalues';
 import {setElementInnerHtml} from 'safevalues/dom';
 
-let importId = crypto.randomUUID();
+let importId: string;
 
 let statementQueue: Statement[] = [];
 
@@ -35,29 +35,43 @@ let totalResults: number;
 
 /**
  * Initializes the import sites dialog.
- * @param query The query to use for importing sites.
- * @param importDetails The details of the import.
+ * @param id The id of the import process.
+ * @param statements The statements to use for importing sites.
+ * @param numResults The total number of results to import.
+ * @param details The details of the import.
  */
-function init(query: string, shouldDisplayQuery: boolean) {
-  if (shouldDisplayQuery) {
-    const queryElement = window.document.getElementById('query')!;
-    setElementInnerHtml(queryElement, sanitizeHtml(`PQL Query: ${query}`));
-    queryElement.style.display = 'block';
+function init(
+  id: string,
+  statements: Statement[],
+  numResults: number,
+  details: string,
+) {
+  if (numResults === 0) {
+    onErrorLoadingSites(new Error('No sites found.'));
+    return;
   }
-  google.script.run
-    .withFailureHandler(onErrorLoadingSites)
-    .withSuccessHandler(onImportStartedSuccess)
-    ['callFunction']('startSitesImport', importId, query);
-  setInterval(() => {
-    updateProgress();
-  }, 1000);
+  totalResults = numResults;
+  setElementInnerHtml(
+    window.document.getElementById('total_results')!,
+    sanitizeHtml(`Total Results: ${totalResults}`),
+  );
+  if (details) {
+    const detailsElement = window.document.getElementById('details')!;
+    setElementInnerHtml(detailsElement, sanitizeHtml(details));
+    detailsElement.style.display = 'block';
+  }
+  importActive = true;
+  importId = id;
+  statementQueue.push(...statements);
+  processStatementQueue();
+  setInterval(updateProgress, 1000);
 }
 
 /**
  * Updates the progress bar and other UI elements.
  */
 function updateProgress() {
-  if (!importActive) {
+  if (!importActive || !totalResults) {
     return;
   }
   elapsedTime++;
@@ -73,10 +87,6 @@ function updateProgress() {
   setElementInnerHtml(
     window.document.getElementById('sites_loaded')!,
     sanitizeHtml(`Sites Loaded: ${sitesLoaded}`),
-  );
-  setElementInnerHtml(
-    window.document.getElementById('total_results')!,
-    sanitizeHtml(`Total Results: ${totalResults ?? 'Loading...'}`),
   );
 }
 
@@ -114,24 +124,6 @@ function processStatementQueue() {
       .withFailureHandler(onErrorLoadingSites)
       ['callFunction']('getSites', importId, statement);
   }
-}
-
-/**
- * Triggers when the startSitesImport call has completed. Queues the statements
- * for the import action.
- * @param result The result of the startSitesImport call.
- */
-function onImportStartedSuccess(result: {
-  totalResults: number;
-  statements: Statement[];
-}) {
-  totalResults = result.totalResults;
-  if (totalResults === 0) {
-    onErrorLoadingSites(new Error('No sites found.'));
-    return;
-  }
-  statementQueue.push(...result['statements']);
-  processStatementQueue();
 }
 
 /**

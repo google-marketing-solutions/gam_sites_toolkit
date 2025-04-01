@@ -28,20 +28,27 @@ import {
   onImportSitesByCustomQuerySelected,
   showApiVersionPrompt,
   showNetworkCodePrompt,
-  startSitesImport,
+  // startSitesImport,
   TEST_ONLY,
 } from './app';
+import {DataHandler} from './data_handler';
+import {SpreadsheetHandler} from './spreadsheet_handler';
+import {AdManagerDateTime} from './typings/ad_manager_api';
 import {UserInterfaceHandler} from './user_interface_handler';
 import {UserSettings} from './user_settings';
+
 const {setCallableFunctions} = TEST_ONLY;
 
 describe('app', () => {
   let mockUserInterfaceHandler: jasmine.SpyObj<UserInterfaceHandler>;
   let mockUserSettings: jasmine.SpyObj<UserSettings>;
+  let mockDataHandler: jasmine.SpyObj<DataHandler>;
+  let mockSpreadsheetHandler: jasmine.SpyObj<SpreadsheetHandler>;
 
   beforeEach(() => {
     mockUserInterfaceHandler = jasmine.createSpyObj('UserInterfaceHandler', [
       'createMenu',
+      'showYesNoDialog',
       'showImportSitesDialog',
       'showInputPrompt',
       'showAlert',
@@ -49,6 +56,18 @@ describe('app', () => {
     mockUserSettings = jasmine.createSpyObj('UserSettings', [
       'networkCode',
       'adManagerApiVersion',
+    ]);
+    mockDataHandler = jasmine.createSpyObj('DataHandler', [
+      'fetchChildPublishers',
+      'getStatementsAndTotalResultsForSitesStatement',
+      'getSites',
+    ]);
+    mockSpreadsheetHandler = jasmine.createSpyObj('SpreadsheetHandler', [
+      'createSheet',
+      'insertValuesIntoSheet',
+      'renameSheet',
+      'activateSheet',
+      'deleteSheet',
     ]);
   });
 
@@ -79,113 +98,145 @@ describe('app', () => {
     });
   });
 
-  describe('onImportAllSitesSelected', () => {
-    it('correctly calls UserInterfaceHandler.showImportSitesDialog', () => {
-      onImportAllSitesSelected(mockUserInterfaceHandler);
-      expect(
-        mockUserInterfaceHandler.showImportSitesDialog,
-      ).toHaveBeenCalledOnceWith('Import All Sites', '', false);
-    });
-  });
-
-  describe('onImportFirstPartySitesSelected', () => {
-    it('correctly calls UserInterfaceHandler.showImportSitesDialog', () => {
-      onImportFirstPartySitesSelected(mockUserInterfaceHandler);
-      expect(
-        mockUserInterfaceHandler.showImportSitesDialog,
-      ).toHaveBeenCalledOnceWith(
-        'Import First Party Sites',
-        "WHERE childNetworkCode = ''",
-        false,
+  describe('site import workflows', () => {
+    beforeEach(() => {
+      mockUserSettings.networkCode = '123456789';
+      mockDataHandler.getStatementsAndTotalResultsForSitesStatement.and.returnValue(
+        {
+          statements: [{query: 'query'}],
+          totalResults: 100,
+        },
       );
-    });
-  });
-
-  describe('onImportChildSitesSelected', () => {
-    it('correctly calls UserInterfaceHandler.showImportSitesDialog', () => {
-      onImportChildSitesSelected(mockUserInterfaceHandler);
-      expect(
-        mockUserInterfaceHandler.showImportSitesDialog,
-      ).toHaveBeenCalledOnceWith(
-        'Import Child Sites',
-        "WHERE childNetworkCode != ''",
-        false,
-      );
-    });
-  });
-
-  describe('onImportSitesByChildNetworkCodeSelected', () => {
-    it('correctly calls UserInterfaceHandler.showInputPrompt', () => {
-      onImportSitesByChildNetworkCodeSelected(mockUserInterfaceHandler);
-      expect(mockUserInterfaceHandler.showInputPrompt).toHaveBeenCalledOnceWith(
-        'Child Network Code',
-        /^[0-9]+$/,
-        jasmine.any(Function),
-        jasmine.any(Function),
+      mockUserInterfaceHandler.showYesNoDialog.and.returnValue(true);
+      // force valid input
+      mockUserInterfaceHandler.showInputPrompt.and.callFake(
+        (message, validPattern, onValidInput, onInvalidInput) => {
+          if (onValidInput !== undefined) {
+            onValidInput('inputDialogResult');
+          }
+        },
       );
     });
 
-    it('for valid input, calls UserInterfaceHandler.showImportSitesDialog', () => {
-      onImportSitesByChildNetworkCodeSelected(mockUserInterfaceHandler);
-      const successCallback =
-        mockUserInterfaceHandler.showInputPrompt.calls.mostRecent().args[2];
+    const showImportSitesDialogTestCases = [
+      {
+        name: 'onImportAllSitesSelected',
+        functionToTest: onImportAllSitesSelected,
+        expectedSheetTitleWithoutDate: '[123456789] All Sites (',
+        expectedDialogTitle: 'Import All Sites',
+        expectedStatements: [{query: 'query'}],
+        expectedTotalResults: 100,
+        expectedDialogDetails: 'Total results: 100',
+      },
+      {
+        name: 'onImportFirstPartySitesSelected',
+        functionToTest: onImportFirstPartySitesSelected,
+        expectedSheetTitleWithoutDate: '[123456789] First Party Sites (',
+        expectedDialogTitle: 'Import First Party Sites',
+        expectedStatements: [{query: 'query'}],
+        expectedTotalResults: 100,
+        expectedDialogDetails: 'Total results: 100',
+      },
+      {
+        name: 'onImportChildSitesSelected',
+        functionToTest: onImportChildSitesSelected,
+        expectedSheetTitleWithoutDate: '[123456789] Child Sites (',
+        expectedDialogTitle: 'Import Child Sites',
+        expectedStatements: [{query: 'query'}],
+        expectedTotalResults: 100,
+        expectedDialogDetails: 'Total results: 100',
+      },
+      {
+        name: 'onImportSitesByChildNetworkCodeSelected',
+        functionToTest: onImportSitesByChildNetworkCodeSelected,
+        expectedSheetTitleWithoutDate:
+          '[123456789] Child Sites (inputDialogResult) (',
+        expectedDialogTitle: 'Import Sites',
+        expectedStatements: [{query: 'query'}],
+        expectedTotalResults: 100,
+        expectedDialogDetails: 'Total results: 100',
+      },
+      {
+        name: 'onImportSitesByCustomQuerySelected',
+        functionToTest: onImportSitesByCustomQuerySelected,
+        expectedSheetTitleWithoutDate: '[123456789] inputDialogResult (',
+        expectedDialogTitle: 'Import Sites by Custom Query',
+        expectedStatements: [{query: 'query'}],
+        expectedTotalResults: 100,
+        expectedDialogDetails: 'Total results: 100',
+      },
+    ];
 
-      if (successCallback !== undefined) {
-        successCallback('123456789');
-      } else {
-        fail('successCallback is undefined');
-      }
+    showImportSitesDialogTestCases.forEach((testCase) => {
+      it(`${testCase.name} shows the import sites dialog`, () => {
+        testCase.functionToTest(
+          mockUserSettings,
+          mockDataHandler,
+          mockSpreadsheetHandler,
+          mockUserInterfaceHandler,
+        );
 
-      expect(
-        mockUserInterfaceHandler.showImportSitesDialog,
-      ).toHaveBeenCalledOnceWith(
-        'Import Sites by Child Network Code',
-        "WHERE childNetworkCode = '123456789'",
-        true,
-      );
+        expect(
+          mockUserInterfaceHandler.showImportSitesDialog,
+        ).toHaveBeenCalledOnceWith(
+          // don't care about the exact date/time string
+          jasmine.stringContaining(testCase.expectedSheetTitleWithoutDate),
+          testCase.expectedDialogTitle,
+          testCase.expectedStatements,
+          testCase.expectedTotalResults,
+          testCase.expectedDialogDetails,
+        );
+      });
     });
 
-    it('for invalid input, calls UserInterfaceHandler.showAlert', () => {
-      onImportSitesByChildNetworkCodeSelected(mockUserInterfaceHandler);
-      const failureCallback =
-        mockUserInterfaceHandler.showInputPrompt.calls.mostRecent().args[3];
-
-      if (failureCallback !== undefined) {
-        failureCallback('abcdefg');
-      } else {
-        fail('failureCallback is undefined');
-      }
-
-      expect(mockUserInterfaceHandler.showAlert).toHaveBeenCalledOnceWith(
-        'Invalid child network code: abcdefg',
-      );
-    });
-  });
-
-  describe('onImportSitesByCustomQuerySelected', () => {
-    it('correctly calls UserInterfaceHandler.showInputPrompt', () => {
-      onImportSitesByCustomQuerySelected(mockUserInterfaceHandler);
-      expect(mockUserInterfaceHandler.showInputPrompt).toHaveBeenCalledOnceWith(
-        'PQL Query',
-        /.*/,
-        jasmine.any(Function),
-      );
+    showImportSitesDialogTestCases.forEach((testCase) => {
+      it(`${testCase.name} throws an error when there are no results`, () => {
+        mockDataHandler.getStatementsAndTotalResultsForSitesStatement.and.throwError(
+          'No sites found.',
+        );
+        expect(() => {
+          testCase.functionToTest(
+            mockUserSettings,
+            mockDataHandler,
+            mockSpreadsheetHandler,
+            mockUserInterfaceHandler,
+          );
+        }).toThrowError('No sites found.');
+      });
     });
 
-    it('for valid input, calls UserInterfaceHandler.showImportSitesDialog', () => {
-      onImportSitesByCustomQuerySelected(mockUserInterfaceHandler);
-      const successCallback =
-        mockUserInterfaceHandler.showInputPrompt.calls.mostRecent().args[2];
+    showImportSitesDialogTestCases.forEach((testCase) => {
+      it(`${testCase.name} creates a sheet with headers`, () => {
+        testCase.functionToTest(
+          mockUserSettings,
+          mockDataHandler,
+          mockSpreadsheetHandler,
+          mockUserInterfaceHandler,
+        );
+        expect(mockSpreadsheetHandler.createSheet).toHaveBeenCalledOnceWith(
+          jasmine.any(String),
+        );
+        expect(
+          mockSpreadsheetHandler.insertValuesIntoSheet,
+        ).toHaveBeenCalledOnceWith(jasmine.any(String), [
+          ['Site URL', 'Child Publisher', 'Approval Status', 'Status Details'],
+        ]);
+      });
+    });
 
-      if (successCallback !== undefined) {
-        successCallback('pql');
-      } else {
-        fail('successCallback is undefined');
-      }
-
-      expect(
-        mockUserInterfaceHandler.showImportSitesDialog,
-      ).toHaveBeenCalledOnceWith('Import Sites by PQL Query', 'pql', true);
+    showImportSitesDialogTestCases.forEach((testCase) => {
+      it(`${testCase.name} doesn't show the import sites dialog if the user cancels`, () => {
+        mockUserInterfaceHandler.showYesNoDialog.and.returnValue(false);
+        testCase.functionToTest(
+          mockUserSettings,
+          mockDataHandler,
+          mockSpreadsheetHandler,
+          mockUserInterfaceHandler,
+        );
+        expect(
+          mockUserInterfaceHandler.showImportSitesDialog,
+        ).toHaveBeenCalledTimes(0);
+      });
     });
   });
 
@@ -277,46 +328,94 @@ describe('app', () => {
     });
   });
 
-  describe('startChildSitesImport', () => {
-    it('returns a string', () => {
-      const mockDataHandler = jasmine.createSpyObj('DataHandler', [
-        'startSitesImport',
-      ]);
-      expect(startSitesImport('importId', 'query', mockDataHandler)).toBe(
-        mockDataHandler.startSitesImport('importId', {query: 'query'}),
-      );
-    });
-  });
-
   describe('getSites', () => {
-    it('returns dataHandler.getSites', () => {
-      const mockDataHandler = jasmine.createSpyObj('DataHandler', ['getSites']);
-      expect(getSites('importId', {'query': 'q'}, mockDataHandler)).toBe(
-        mockDataHandler.getSites('importId', {'query': 'q'}),
+    beforeEach(() => {
+      mockUserSettings.networkCode = '123456789';
+      mockUserSettings.childPublishers = {
+        '1234': {
+          id: '1',
+          name: 'Child Publisher',
+          childNetworkCode: '1234',
+        },
+      };
+      mockDataHandler.getSites.and.returnValue({
+        results: [
+          {
+            id: 1,
+            url: 'url',
+            childNetworkCode: '1234',
+            approvalStatus: 'APPROVED',
+            code: '',
+            approvalStatusDateTime: {} as unknown as AdManagerDateTime,
+            disapprovalReasons: [],
+          },
+          {
+            id: 2,
+            url: 'url2',
+            childNetworkCode: '5678',
+            approvalStatus: 'DISAPPROVED',
+            code: '',
+            approvalStatusDateTime: {} as unknown as AdManagerDateTime,
+            disapprovalReasons: [],
+          },
+        ],
+        startIndex: 0,
+        totalResultSetSize: 2,
+      });
+    });
+
+    it('returns the number of sites in the batch', () => {
+      expect(
+        getSites(
+          'sheetTitle',
+          {'query': 'q'},
+          mockUserSettings,
+          mockDataHandler,
+          mockSpreadsheetHandler,
+        ),
+      ).toBe(2);
+    });
+
+    it('writes the sites to the sheet', () => {
+      getSites(
+        'sheetTitle',
+        {'query': 'q'},
+        mockUserSettings,
+        mockDataHandler,
+        mockSpreadsheetHandler,
+      );
+      expect(
+        mockSpreadsheetHandler.insertValuesIntoSheet,
+      ).toHaveBeenCalledOnceWith(
+        'sheetTitle',
+        [
+          ['url', 'Child Publisher (1234)', 'Ready', ''],
+          [
+            'url2',
+            '[Child Publisher Name Not Found] (5678)',
+            'Needs attention',
+            '',
+          ],
+        ],
+        2,
       );
     });
   });
 
   describe('finishSitesImport', () => {
-    it('calls dataHandler.finishSitesImport', () => {
-      const mockDataHandler = jasmine.createSpyObj('DataHandler', [
-        'finishSitesImport',
-      ]);
-      finishSitesImport('importId', mockDataHandler);
-      expect(mockDataHandler.finishSitesImport).toHaveBeenCalledOnceWith(
-        'importId',
+    it('shows the sheet with the results', () => {
+      finishSitesImport('sheetTitle', mockDataHandler, mockSpreadsheetHandler);
+      expect(mockSpreadsheetHandler.activateSheet).toHaveBeenCalledOnceWith(
+        'sheetTitle',
       );
     });
   });
 
   describe('cancelSitesImport', () => {
     it('calls dataHandler.cancelSitesImport', () => {
-      const mockDataHandler = jasmine.createSpyObj('DataHandler', [
-        'cancelSitesImport',
-      ]);
-      cancelSitesImport('importId', mockDataHandler);
-      expect(mockDataHandler.cancelSitesImport).toHaveBeenCalledOnceWith(
-        'importId',
+      cancelSitesImport('sheetTitle', mockUserSettings, mockSpreadsheetHandler);
+      expect(mockSpreadsheetHandler.deleteSheet).toHaveBeenCalledOnceWith(
+        'sheetTitle',
       );
     });
   });

@@ -20,12 +20,14 @@
  */
 
 import {
+  Company,
   Site,
   StatementResult,
 } from 'google3/third_party/professional_services/solutions/child_sites_toolkit/app/typings/ad_manager_api';
 import {AdManagerServerFault} from 'google3/third_party/professional_services/solutions/gam_apps_script/ad_manager_error';
 import {AdManagerService} from 'google3/third_party/professional_services/solutions/gam_apps_script/ad_manager_service';
 import {Statement} from 'google3/third_party/professional_services/solutions/gam_apps_script/typings/statement';
+import {ChildPublisherMap} from './user_settings';
 
 /**
  * Handles data retrieval and caching for the application.
@@ -33,28 +35,32 @@ import {Statement} from 'google3/third_party/professional_services/solutions/gam
 export class DataHandler {
   constructor(
     private readonly siteService: AdManagerService,
-    private readonly activeSpreadsheet = SpreadsheetApp.getActive(),
+    private readonly companyService: AdManagerService,
   ) {}
 
   /**
-   * Creates a new sheet for the given import ID.
-   * @param importId The ID of the import process.
-   * @return The newly created sheet.
+   * Fetches child publishers from the Ad Manager API.
+   * @return A map of child publishers, keyed by child network code.
    */
-  private createSheet(importId: string) {
-    const sheet = this.activeSpreadsheet.insertSheet(importId);
-    sheet.hideSheet();
-    const headers = [
-      'Site ID',
-      'URL',
-      'Child Network Code',
-      'Approval Status',
-      'Code',
-      'Last Approval Status Change',
-      'Disapproval Reasons',
-    ];
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    return sheet;
+  fetchChildPublishers(): ChildPublisherMap {
+    const {results} = this.companyService.performOperation(
+      'getCompaniesByStatement',
+      {
+        query: "WHERE type = 'CHILD_PUBLISHER'",
+      },
+    ) as StatementResult<Company>;
+    const childPublisherList = results.map((company) => {
+      return {
+        id: company.id,
+        name: company.name,
+        childNetworkCode: company.childPublisher.childNetworkCode,
+      };
+    });
+    const childPublishers: ChildPublisherMap = {};
+    for (const childPublisher of childPublisherList) {
+      childPublishers[childPublisher.childNetworkCode] = childPublisher;
+    }
+    return childPublishers;
   }
 
   /**
@@ -73,14 +79,12 @@ export class DataHandler {
 
   /**
    * Starts the sites import process.
-   * @param importId The ID of the import process.
    * @param statement The PQL Statement to use to filter sites.
    * @param batchSize The number of sites to retrieve per batch.
    * @param maxResults The maximum number of sites to retrieve.
    * @return An object containing the statements and total results.
    */
-  public startSitesImport(
-    importId: string,
+  public getStatementsAndTotalResultsForSitesStatement(
     statement: Statement,
     batchSize: number = 100,
     maxResults: number = 100_000,
@@ -90,7 +94,9 @@ export class DataHandler {
       throw new Error('Limit and offset are not supported');
     }
     const totalResultSetSize = this.getResultSetSize(statement);
-    this.createSheet(importId);
+    if (totalResultSetSize === 0) {
+      throw new Error('No sites found');
+    }
     const statements: Statement[] = [];
     const totalResults = Math.min(totalResultSetSize, maxResults);
     for (let i = 0; i < totalResults; i += batchSize) {
@@ -103,42 +109,12 @@ export class DataHandler {
   }
 
   /**
-   * Adds sites to the sheet for the given import ID.
-   * @param importId The ID of the import process.
-   * @param sites The sites to add to the sheet.
-   * @param row The starting row for the sites.
-   */
-  private addSitesToSheet(importId: string, sites: Site[], row: number) {
-    const sheet = this.activeSpreadsheet.getSheetByName(importId);
-    if (!sheet) {
-      throw new Error(`Sheet ${importId} not found.`);
-    }
-    const rows = sites.map((site) => {
-      return [
-        site.id,
-        site.url,
-        site.childNetworkCode ?? '',
-        site.approvalStatus,
-        site.code,
-        site.approvalStatusDateTime,
-        site.disapprovalReasons ?? '',
-      ];
-    });
-    sheet.getRange(row, 1, sites.length, rows[0]?.length).setValues(rows);
-  }
-
-  /**
    * Gets sites for a given import ID and statement.
-   * @param importId The ID of the import process.
    * @param statement The statement to use to filter sites.
    * @param retries The number of times to retry the request.
    * @return The number of sites returned.
    */
-  getSites(
-    importId: string,
-    statement: Statement,
-    retries: number = 3,
-  ): number {
+  getSites(statement: Statement, retries: number = 3): StatementResult<Site> {
     let sitesPage: StatementResult<Site>;
     try {
       sitesPage = this.siteService.performOperation(
@@ -146,39 +122,11 @@ export class DataHandler {
         statement,
       ) as StatementResult<Site>;
     } catch (e) {
-      console.log('getSites catch', e);
       if (e instanceof AdManagerServerFault && retries > 0) {
-        return this.getSites(importId, statement, retries - 1);
+        return this.getSites(statement, retries - 1);
       }
       throw e;
     }
-    this.addSitesToSheet(importId, sitesPage.results, sitesPage.startIndex + 2);
-    return sitesPage.results.length;
-  }
-
-  /**
-   * Finishes the sites import process.
-   * @param importId The ID of the import process.
-   */
-  finishSitesImport(importId: string) {
-    const sheet = this.activeSpreadsheet.getSheetByName(importId);
-    if (!sheet) {
-      throw new Error(`Sheet ${importId} not found.`);
-    }
-    const date = new Date();
-    sheet.setName(`Sites - ${date.toLocaleString()}`);
-    sheet.showSheet();
-    sheet.activate();
-  }
-
-  /**
-   * Cancels the sites import process.
-   * @param importId The ID of the import process.
-   */
-  cancelSitesImport(importId: string) {
-    const sheet = this.activeSpreadsheet.getSheetByName(importId);
-    if (sheet) {
-      this.activeSpreadsheet.deleteSheet(sheet);
-    }
+    return sitesPage;
   }
 }
