@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-import {AdManagerServerFault} from 'google3/third_party/professional_services/solutions/gam_apps_script/ad_manager_error';
-import {AdManagerService} from 'google3/third_party/professional_services/solutions/gam_apps_script/ad_manager_service';
+import {AdManagerServerFault} from 'gam_apps_script/ad_manager_error';
+import {AdManagerService} from 'gam_apps_script/ad_manager_service';
 import {DataHandler} from './data_handler';
 import {Site, StatementResult} from './typings/ad_manager_api';
 

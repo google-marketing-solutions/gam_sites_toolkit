@@ -23,10 +23,10 @@ import {
   Company,
   Site,
   StatementResult,
-} from 'google3/third_party/professional_services/solutions/child_sites_toolkit/app/typings/ad_manager_api';
-import {AdManagerServerFault} from 'google3/third_party/professional_services/solutions/gam_apps_script/ad_manager_error';
-import {AdManagerService} from 'google3/third_party/professional_services/solutions/gam_apps_script/ad_manager_service';
-import {Statement} from 'google3/third_party/professional_services/solutions/gam_apps_script/typings/statement';
+} from './typings/ad_manager_api';
+import {AdManagerServerFault} from 'gam_apps_script/ad_manager_error';
+import {AdManagerService} from 'gam_apps_script/ad_manager_service';
+import {Statement} from 'gam_apps_script/typings/statement';
 import {ChildPublisherMap} from './user_settings';
 
 /**

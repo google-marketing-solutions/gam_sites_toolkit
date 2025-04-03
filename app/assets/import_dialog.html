@@ -23,8 +23,41 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
   <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
   <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+  <!-- copybara:strip_begin(Scriptlets are not used with webpack deployment) -->
   <?!= include('import_dialog_bin.js'); ?>
-  <?!= include('import_dialog.css'); ?>
+  <!-- copybara:strip_end -->
+  <style>
+    .dialog-container {
+      width: 500px;
+    }
+
+    .mdl-card__supporting-text {
+      padding-top: 8px;
+    }
+
+    .progress-bar-container {
+      margin-top: 20px;
+      width: 100%;
+      background-color: #eee;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 20px;
+      background-color: #4CAF50;
+      width: 0;
+      transition: width 0.3s ease;
+    }
+
+    .info-section {
+      margin-top: 20px;
+    }
+
+    .info-item {
+      margin-bottom: 5px;
+    }
+  </style>
 </head>
 <body>
 

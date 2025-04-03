@@ -20,8 +20,8 @@
  * functions for menus, dialogs, and interaction with the client.
  */
 
-import {AdManagerClient} from 'google3/third_party/professional_services/solutions/gam_apps_script/ad_manager_client';
-import {Statement} from 'google3/third_party/professional_services/solutions/gam_apps_script/typings/statement';
+import {AdManagerClient} from 'gam_apps_script/ad_manager_client';
+import {Statement} from 'gam_apps_script/typings/statement';
 import {DataHandler} from './data_handler';
 import {SpreadsheetHandler} from './spreadsheet_handler';
 import {Site} from './typings/ad_manager_api';
@@ -539,7 +539,7 @@ export function include(filename: string): string {
 /**
  * The entry point for the application.
  */
-function onOpen() {
+export function onOpen() {
   const handler = getUserInterfaceHandler();
   const settings = getUserSettings();
   createMenu(handler, settings);
@@ -548,22 +548,13 @@ function onOpen() {
 
 
 
-goog.exportSymbol(MENU_ITEM_IMPORT_ALL_SITES, onImportAllSitesSelected);
-goog.exportSymbol(MENU_ITEM_IMPORT_CHILD_SITES, onImportChildSitesSelected);
-goog.exportSymbol(
-  MENU_ITEM_IMPORT_FIRST_PARTY_SITES,
-  onImportFirstPartySitesSelected,
-);
-goog.exportSymbol(
-  MENU_ITEM_IMPORT_SITES_BY_CHILD_NETWORK_CODE,
-  onImportSitesByChildNetworkCodeSelected,
-);
-goog.exportSymbol(
-  MENU_ITEM_IMPORT_SITES_BY_CUSTOM_QUERY,
-  onImportSitesByCustomQuerySelected,
-);
-goog.exportSymbol(MENU_ITEM_SHOW_NETWORK_CODE_PROMPT, showNetworkCodePrompt);
-goog.exportSymbol(MENU_ITEM_SHOW_API_VERSION_PROMPT, showApiVersionPrompt);
+
+
+
+
+
+
+
 
 /**
  * Exposes functions for testing.

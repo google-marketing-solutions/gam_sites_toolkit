@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import {Statement} from 'google3/third_party/professional_services/solutions/gam_apps_script/typings/statement';
+import {Statement} from 'gam_apps_script/typings/statement';
 import {sanitizeHtml} from 'safevalues';
 import {setElementInnerHtml} from 'safevalues/dom';
 
@@ -40,7 +40,7 @@ let totalResults: number;
  * @param numResults The total number of results to import.
  * @param details The details of the import.
  */
-function init(
+export function init(
   id: string,
   statements: Statement[],
   numResults: number,

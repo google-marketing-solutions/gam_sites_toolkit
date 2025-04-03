@@ -18,7 +18,7 @@
 /**
  * @fileoverview Handles user interface interactions.
  */
-import {Statement} from 'google3/third_party/professional_services/solutions/gam_apps_script/typings/statement';
+import {Statement} from 'gam_apps_script/typings/statement';
 import {UserSettings} from './user_settings';
 
 /**
