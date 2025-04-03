@@ -79,9 +79,10 @@
   </body>
   <script>
     const importId = "<?= importId ?>";
+    const outputSheetFormat = "<?= outputSheetFormat ?>";
     const statements = JSON.parse("<?= statements ?>");
     const totalResults = Number("<?= totalResults ?>");
     const details = "<?= details ?>";
-    init(importId, statements, totalResults, details);
+    init(importId, outputSheetFormat, statements, totalResults, details);
   </script>
 </html>

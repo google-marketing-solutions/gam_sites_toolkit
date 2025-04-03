@@ -49,6 +49,9 @@ export class DataHandler {
         query: "WHERE type = 'CHILD_PUBLISHER'",
       },
     ) as StatementResult<Company>;
+    if (!results) {
+      return {};
+    }
     const childPublisherList = results.map((company) => {
       return {
         id: company.id,

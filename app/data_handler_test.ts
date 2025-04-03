@@ -85,6 +85,16 @@ describe('DataHandler', () => {
         },
       );
     });
+
+    it('returns an empty map if no child publishers are found', () => {
+      mockCompanyService.performOperation.and.returnValue({
+        results: undefined,
+        startIndex: 0,
+        totalResultSetSize: 0,
+      });
+      const dataHandler = new DataHandler(mockSiteService, mockCompanyService);
+      expect(dataHandler.fetchChildPublishers()).toEqual({});
+    });
   });
 
   describe('getStatementsAndTotalResultsForSitesStatement', () => {

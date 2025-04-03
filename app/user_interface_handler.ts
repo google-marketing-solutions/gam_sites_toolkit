@@ -20,6 +20,7 @@
  */
 import {Statement} from 'gam_apps_script/typings/statement';
 import {UserSettings} from './user_settings';
+import {SiteImportOutputFormat} from './app'
 
 /**
  * Represents a menu item, which can be a string (representing a function) or a
@@ -99,14 +100,16 @@ export class UserInterfaceHandler {
    * @param details Additional details that should be displayed in the dialog.
    */
   showImportSitesDialog(
-    importId: string,
     title: string,
+    outputSheetTitle: string,
+    outputSheetFormat: SiteImportOutputFormat,
     statements: Statement[],
     totalResults: number,
     details: string = '',
   ): void {
     var htmlTemplate = this.createHtmlTemplateFn('import_dialog');
-    htmlTemplate['importId'] = importId;
+    htmlTemplate['importId'] = outputSheetTitle;
+    htmlTemplate['outputSheetFormat'] = outputSheetFormat;
     htmlTemplate['statements'] = JSON.stringify(statements);
     htmlTemplate['totalResults'] = totalResults;
     htmlTemplate['details'] = details;

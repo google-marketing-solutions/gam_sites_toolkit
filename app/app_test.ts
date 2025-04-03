@@ -28,7 +28,7 @@ import {
   onImportSitesByCustomQuerySelected,
   showApiVersionPrompt,
   showNetworkCodePrompt,
-  // startSitesImport,
+  SiteImportOutputFormat,
   TEST_ONLY,
 } from './app';
 import {DataHandler} from './data_handler';
@@ -123,6 +123,7 @@ describe('app', () => {
         name: 'onImportAllSitesSelected',
         functionToTest: onImportAllSitesSelected,
         expectedSheetTitleWithoutDate: '[123456789] All Sites (',
+        expectedSiteImportOutputFormat: SiteImportOutputFormat.COMBINED,
         expectedDialogTitle: 'Import All Sites',
         expectedStatements: [{query: 'query'}],
         expectedTotalResults: 100,
@@ -132,6 +133,7 @@ describe('app', () => {
         name: 'onImportFirstPartySitesSelected',
         functionToTest: onImportFirstPartySitesSelected,
         expectedSheetTitleWithoutDate: '[123456789] First Party Sites (',
+        expectedSiteImportOutputFormat: SiteImportOutputFormat.FIRST_PARTY,
         expectedDialogTitle: 'Import First Party Sites',
         expectedStatements: [{query: 'query'}],
         expectedTotalResults: 100,
@@ -141,6 +143,7 @@ describe('app', () => {
         name: 'onImportChildSitesSelected',
         functionToTest: onImportChildSitesSelected,
         expectedSheetTitleWithoutDate: '[123456789] Child Sites (',
+        expectedSiteImportOutputFormat: SiteImportOutputFormat.CHILD,
         expectedDialogTitle: 'Import Child Sites',
         expectedStatements: [{query: 'query'}],
         expectedTotalResults: 100,
@@ -151,6 +154,7 @@ describe('app', () => {
         functionToTest: onImportSitesByChildNetworkCodeSelected,
         expectedSheetTitleWithoutDate:
           '[123456789] Child Sites (inputDialogResult) (',
+        expectedSiteImportOutputFormat: SiteImportOutputFormat.CHILD,
         expectedDialogTitle: 'Import Sites',
         expectedStatements: [{query: 'query'}],
         expectedTotalResults: 100,
@@ -160,6 +164,7 @@ describe('app', () => {
         name: 'onImportSitesByCustomQuerySelected',
         functionToTest: onImportSitesByCustomQuerySelected,
         expectedSheetTitleWithoutDate: '[123456789] inputDialogResult (',
+        expectedSiteImportOutputFormat: SiteImportOutputFormat.COMBINED,
         expectedDialogTitle: 'Import Sites by Custom Query',
         expectedStatements: [{query: 'query'}],
         expectedTotalResults: 100,
@@ -179,9 +184,10 @@ describe('app', () => {
         expect(
           mockUserInterfaceHandler.showImportSitesDialog,
         ).toHaveBeenCalledOnceWith(
+          testCase.expectedDialogTitle,
           // don't care about the exact date/time string
           jasmine.stringContaining(testCase.expectedSheetTitleWithoutDate),
-          testCase.expectedDialogTitle,
+          testCase.expectedSiteImportOutputFormat,
           testCase.expectedStatements,
           testCase.expectedTotalResults,
           testCase.expectedDialogDetails,
@@ -216,11 +222,19 @@ describe('app', () => {
         expect(mockSpreadsheetHandler.createSheet).toHaveBeenCalledOnceWith(
           jasmine.any(String),
         );
+        const expectedHeaders =
+          testCase.expectedSiteImportOutputFormat ===
+          SiteImportOutputFormat.FIRST_PARTY
+            ? ['Site URL', 'Approval Status', 'Status Details']
+            : [
+                'Site URL',
+                'Child Publisher',
+                'Approval Status',
+                'Status Details',
+              ];
         expect(
           mockSpreadsheetHandler.insertValuesIntoSheet,
-        ).toHaveBeenCalledOnceWith(jasmine.any(String), [
-          ['Site URL', 'Child Publisher', 'Approval Status', 'Status Details'],
-        ]);
+        ).toHaveBeenCalledOnceWith(jasmine.any(String), [expectedHeaders]);
       });
     });
 
@@ -369,6 +383,7 @@ describe('app', () => {
         getSites(
           'sheetTitle',
           {'query': 'q'},
+          SiteImportOutputFormat.COMBINED,
           mockUserSettings,
           mockDataHandler,
           mockSpreadsheetHandler,
@@ -380,6 +395,7 @@ describe('app', () => {
       getSites(
         'sheetTitle',
         {'query': 'q'},
+        SiteImportOutputFormat.COMBINED,
         mockUserSettings,
         mockDataHandler,
         mockSpreadsheetHandler,

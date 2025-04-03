@@ -135,11 +135,21 @@ export function createMenu(
 }
 
 /**
+ * Format options for the output sheet.
+ */
+export enum SiteImportOutputFormat {
+  FIRST_PARTY = 'first_party',
+  CHILD = 'child',
+  COMBINED = 'combined',
+}
+
+/**
  * Starts the process of importing sites.
  * @param query The PQL query to use to filter sites.
  * @param dialogTitle The title of the dialog to show.
  * @param dialogMessage The message to show in the dialog.
  * @param sheetTitle The title of the sheet to create.
+ * @param outputFormat The format of the output sheet.
  * @param userSettings The user settings to use.
  * @param dataHandler The data handler to use.
  * @param userInterfaceHandler The user interface handler to use.
@@ -150,6 +160,7 @@ function startSitesImport(
   dialogTitle: string,
   dialogMessage: string | null,
   sheetTitle: string,
+  outputFormat: SiteImportOutputFormat,
   userSettings = getUserSettings(),
   dataHandler = getDataHandler(),
   userInterfaceHandler = getUserInterfaceHandler(),
@@ -172,12 +183,22 @@ function startSitesImport(
   }
   const timeString = new Date().toLocaleString();
   spreadsheetHandler.createSheet(sheetTitle);
-  spreadsheetHandler.insertValuesIntoSheet(sheetTitle, [
-    ['Site URL', 'Child Publisher', 'Approval Status', 'Status Details'],
-  ]);
+  let headers;
+  if (outputFormat === SiteImportOutputFormat.FIRST_PARTY) {
+    headers = ['Site URL', 'Approval Status', 'Status Details'];
+  } else {
+    headers = [
+      'Site URL',
+      'Child Publisher',
+      'Approval Status',
+      'Status Details',
+    ];
+  }
+  spreadsheetHandler.insertValuesIntoSheet(sheetTitle, [headers]);
   userInterfaceHandler.showImportSitesDialog(
-    sheetTitle,
     dialogTitle,
+    sheetTitle,
+    outputFormat,
     statements,
     totalResults,
     `Total results: ${totalResults}`,
@@ -203,6 +224,7 @@ export function onImportAllSitesSelected(
     'Import All Sites',
     null,
     `[${userSettings.networkCode}] All Sites (${timeString})`,
+    SiteImportOutputFormat.COMBINED,
     userSettings,
     dataHandler,
     userInterfaceHandler,
@@ -229,6 +251,7 @@ export function onImportFirstPartySitesSelected(
     'Import First Party Sites',
     null,
     `[${userSettings.networkCode}] First Party Sites (${timeString})`,
+    SiteImportOutputFormat.FIRST_PARTY,
     userSettings,
     dataHandler,
     userInterfaceHandler,
@@ -255,6 +278,7 @@ export function onImportChildSitesSelected(
     'Import Child Sites',
     null,
     `[${userSettings.networkCode}] Child Sites (${timeString})`,
+    SiteImportOutputFormat.CHILD,
     userSettings,
     dataHandler,
     userInterfaceHandler,
@@ -285,6 +309,7 @@ export function onImportSitesByChildNetworkCodeSelected(
         'Import Sites',
         `Child Network Code: ${childNetworkCode}`,
         `[${userSettings.networkCode}] Child Sites (${childNetworkCode}) (${timeString})`,
+        SiteImportOutputFormat.CHILD,
         userSettings,
         dataHandler,
         userInterfaceHandler,
@@ -319,6 +344,7 @@ export function onImportSitesByCustomQuerySelected(
       'Import Sites by Custom Query',
       `Query: ${query}`,
       `[${userSettings.networkCode}] ${query} (${timeString})`,
+      SiteImportOutputFormat.COMBINED,
       userSettings,
       dataHandler,
       userInterfaceHandler,
@@ -379,21 +405,18 @@ export function showApiVersionPrompt(
  * Creates a row for a site.
  * @param site The site to create a row for.
  * @param childPublishers A map of child publishers.
+ * @param outputFormat The format of the output sheet.
  * @return An array of strings representing the row.
- *
- * The returned array contains the following values:
- * - Site URL
- * - Child Publisher (Name and Network Code)
- * - Approval Status
- * - Disapproval Reasons
  */
 function createRowForSite(
   site: Site,
   childPublishers: ChildPublisherMap,
+  outputFormat: SiteImportOutputFormat,
 ): string[] {
-  const childPublisher = childPublishers[site.childNetworkCode];
+  const isChildSite = Boolean(site.childNetworkCode);
   let childPublisherEntry;
-  if (site.childNetworkCode) {
+  if (isChildSite) {
+    const childPublisher = childPublishers[site.childNetworkCode];
     const childPublisherName =
       childPublisher?.name ?? '[Child Publisher Name Not Found]';
     childPublisherEntry = `${childPublisherName} (${site.childNetworkCode})`;
@@ -404,7 +427,9 @@ function createRowForSite(
   let approvalStatusEntry;
   switch (site.approvalStatus) {
     case 'DRAFT':
-      approvalStatusEntry = 'Requires review';
+      approvalStatusEntry = isChildSite
+        ? 'Requires review'
+        : 'Not sent for review';
       break;
     case 'APPROVED':
       approvalStatusEntry = 'Ready';
@@ -421,24 +446,28 @@ function createRowForSite(
       break;
   }
   const disapprovalReasonsEntry = (site.disapprovalReasons ?? [])
-    .filter(
-      (r) => /** only keep non-empty strings */ r.details && r.details.trim(),
-    )
+    // only keep non-empty strings
+    .filter((r) => r.details && r.details.trim())
     .map((r) => r.details.trim())
     .join(', ');
 
-  return [
-    site.url,
-    childPublisherEntry,
-    approvalStatusEntry,
-    disapprovalReasonsEntry,
-  ];
+  if (outputFormat === SiteImportOutputFormat.FIRST_PARTY) {
+    return [site.url, approvalStatusEntry, disapprovalReasonsEntry];
+  } else {
+    return [
+      site.url,
+      childPublisherEntry,
+      approvalStatusEntry,
+      disapprovalReasonsEntry,
+    ];
+  }
 }
 
 /**
  * Gets sites for a given import ID and statement.
  * @param sheetTitle The title of the sheet for the import process.
  * @param statement The PQL Statement to use to filter sites.
+ * @param outputFormat The format of the output sheet.
  * @param userSettings The user settings to use.
  * @param dataHandler The data handler to use.
  * @return The number of sites returned.
@@ -446,6 +475,7 @@ function createRowForSite(
 export function getSites(
   sheetTitle: string,
   statement: Statement,
+  outputFormat: SiteImportOutputFormat,
   userSettings = getUserSettings(),
   dataHandler = getDataHandler(),
   spreadsheetHandler = getSpreadsheetHandler(),
@@ -455,8 +485,10 @@ export function getSites(
     userSettings.childPublishers ?? dataHandler.fetchChildPublishers();
 
   const rows = sitesPage.results.map((site) =>
-    createRowForSite(site, childPublishers),
+    createRowForSite(site, childPublishers, outputFormat),
   );
+  console.log('outputFormat:', outputFormat);
+  console.log('rows:', rows);
   spreadsheetHandler.insertValuesIntoSheet(
     sheetTitle,
     rows,

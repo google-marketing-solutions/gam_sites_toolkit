@@ -15,11 +15,14 @@
  * limitations under the License.
  */
 
+import {SiteImportOutputFormat} from './app';
 import {Statement} from 'gam_apps_script/typings/statement';
 import {sanitizeHtml} from 'safevalues';
 import {setElementInnerHtml} from 'safevalues/dom';
 
 let importId: string;
+
+let outputSheetFormat: SiteImportOutputFormat;
 
 let statementQueue: Statement[] = [];
 
@@ -42,6 +45,7 @@ let totalResults: number;
  */
 export function init(
   id: string,
+  outputFormat: SiteImportOutputFormat,
   statements: Statement[],
   numResults: number,
   details: string,
@@ -51,6 +55,7 @@ export function init(
     return;
   }
   totalResults = numResults;
+  outputSheetFormat = outputFormat;
   setElementInnerHtml(
     window.document.getElementById('total_results')!,
     sanitizeHtml(`Total Results: ${totalResults}`),
@@ -122,7 +127,7 @@ function processStatementQueue() {
     google.script.run
       .withSuccessHandler(onSitesLoadedSuccess)
       .withFailureHandler(onErrorLoadingSites)
-      ['callFunction']('getSites', importId, statement);
+      ['callFunction']('getSites', importId, statement, outputSheetFormat);
   }
 }
 
