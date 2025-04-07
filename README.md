@@ -1,4 +1,4 @@
-# Child Sites Toolkit
+# Sites Toolkit for Google Ad Manager
 
 ## Overview
 
@@ -67,3 +67,8 @@ To run the karma test suite:
 ```bash
 npm run test
 ```
+
+## Disclaimer
+
+This is not an officially supported Google product. The code samples shared here
+are not formally supported by Google and are provided only as a reference.
