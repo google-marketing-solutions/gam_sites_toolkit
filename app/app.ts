@@ -85,10 +85,9 @@ function getDataHandler(userSettings = getUserSettings()) {
   if (!dataHandler) {
     const client = new AdManagerClient(
       ScriptApp.getOAuthToken(),
-      'Child Sites Toolkit',
+      'gam_sites_toolkit',
       userSettings.networkCode,
       userSettings.adManagerApiVersion,
-      {'Is-Internal-User': 'true'},
     );
     const siteService = client.getService('SiteService');
     const companyService = client.getService('CompanyService');
@@ -487,8 +486,6 @@ export function getSites(
   const rows = sitesPage.results.map((site) =>
     createRowForSite(site, childPublishers, outputFormat),
   );
-  console.log('outputFormat:', outputFormat);
-  console.log('rows:', rows);
   spreadsheetHandler.insertValuesIntoSheet(
     sheetTitle,
     rows,
@@ -500,11 +497,10 @@ export function getSites(
 /**
  * Finishes the sites import process.
  * @param sheetTitle The title of the sheet for the import process.
- * @param dataHandler The data handler to use.
+ * @param spreadsheetHandler The spreadsheet handler to use.
  */
 export function finishSitesImport(
   sheetTitle: string,
-  dataHandler = getDataHandler(),
   spreadsheetHandler = getSpreadsheetHandler(),
 ): void {
   spreadsheetHandler.activateSheet(sheetTitle);
@@ -513,11 +509,10 @@ export function finishSitesImport(
 /**
  * Cancels the sites import process.
  * @param sheetTitle The title of the sheet for the import process.
- * @param dataHandler The data handler to use.
+ * @param spreadsheetHandler The spreadsheet handler to use.
  */
 export function cancelSitesImport(
   sheetTitle: string,
-  userSettings = getUserSettings(),
   spreadsheetHandler = getSpreadsheetHandler(),
 ): void {
   spreadsheetHandler.deleteSheet(sheetTitle);

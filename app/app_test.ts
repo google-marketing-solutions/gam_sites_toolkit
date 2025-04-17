@@ -420,7 +420,7 @@ describe('app', () => {
 
   describe('finishSitesImport', () => {
     it('shows the sheet with the results', () => {
-      finishSitesImport('sheetTitle', mockDataHandler, mockSpreadsheetHandler);
+      finishSitesImport('sheetTitle', mockSpreadsheetHandler);
       expect(mockSpreadsheetHandler.activateSheet).toHaveBeenCalledOnceWith(
         'sheetTitle',
       );
@@ -429,7 +429,7 @@ describe('app', () => {
 
   describe('cancelSitesImport', () => {
     it('calls dataHandler.cancelSitesImport', () => {
-      cancelSitesImport('sheetTitle', mockUserSettings, mockSpreadsheetHandler);
+      cancelSitesImport('sheetTitle', mockSpreadsheetHandler);
       expect(mockSpreadsheetHandler.deleteSheet).toHaveBeenCalledOnceWith(
         'sheetTitle',
       );
