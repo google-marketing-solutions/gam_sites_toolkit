@@ -12,6 +12,9 @@ only users with existing access to the GAM network can import data.
 
 ## Setup & Configuration
 
+To get your own copy of this solution, make a copy of this [Google Sheet](https://docs.google.com/spreadsheets/d/1NALJCRq6YsmPihrYcoYBzPAj30j81t5EUEivZrjVhe8/copy) and follow the included setup
+instructions.
+
 1.  **Open the Sheet:** Once you have your copy, open the Google Sheet.
 2.  **Authorize:** The first time you try to use the toolkit's menu, you will be
 prompted to grant authorization for the script to access Google Sheets and your
