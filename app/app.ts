@@ -134,6 +134,22 @@ export function createMenu(
 }
 
 /**
+ * Registers menu functions onto the provided object.
+ * @param scope The object to register functions onto.
+ */
+export function registerMenuFunctions(scope: Record<string, Function>): void {
+  scope[MENU_ITEM_IMPORT_ALL_SITES] = onImportAllSitesSelected;
+  scope[MENU_ITEM_IMPORT_FIRST_PARTY_SITES] = onImportFirstPartySitesSelected;
+  scope[MENU_ITEM_IMPORT_CHILD_SITES] = onImportChildSitesSelected;
+  scope[MENU_ITEM_IMPORT_SITES_BY_CHILD_NETWORK_CODE] =
+    onImportSitesByChildNetworkCodeSelected;
+  scope[MENU_ITEM_IMPORT_SITES_BY_CUSTOM_QUERY] =
+    onImportSitesByCustomQuerySelected;
+  scope[MENU_ITEM_SHOW_API_VERSION_PROMPT] = showApiVersionPrompt;
+  scope[MENU_ITEM_SHOW_NETWORK_CODE_PROMPT] = showNetworkCodePrompt;
+}
+
+/**
  * Format options for the output sheet.
  */
 export enum SiteImportOutputFormat {
@@ -571,6 +587,7 @@ export function onOpen() {
   const settings = getUserSettings();
   createMenu(handler, settings);
 }
+
 
 
 

@@ -26,6 +26,7 @@ import {
   onImportFirstPartySitesSelected,
   onImportSitesByChildNetworkCodeSelected,
   onImportSitesByCustomQuerySelected,
+  registerMenuFunctions,
   showApiVersionPrompt,
   showNetworkCodePrompt,
   SiteImportOutputFormat,
@@ -95,6 +96,24 @@ describe('app', () => {
         'GAM Sites Toolkit',
         expectedMenu,
       );
+    });
+  });
+
+  describe('registerMenuFunctions', () => {
+    it('registers menu functions', () => {
+      const scope = {};
+      registerMenuFunctions(scope);
+      expect(scope).toEqual({
+        'onImportAllSitesSelected': onImportAllSitesSelected,
+        'onImportFirstPartySitesSelected': onImportFirstPartySitesSelected,
+        'onImportChildSitesSelected': onImportChildSitesSelected,
+        'onImportSitesByChildNetworkCodeSelected':
+          onImportSitesByChildNetworkCodeSelected,
+        'onImportSitesByCustomQuerySelected':
+          onImportSitesByCustomQuerySelected,
+        'showApiVersionPrompt': showApiVersionPrompt,
+        'showNetworkCodePrompt': showNetworkCodePrompt,
+      });
     });
   });
 
