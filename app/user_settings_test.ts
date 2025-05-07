@@ -31,15 +31,15 @@ describe('UserSettings', () => {
   describe('networkCode', () => {
     it('returns null when no property is set', () => {
       mockUserProperties.getProperty.and.returnValue(null);
-      const settings = new UserSettings(mockUserProperties);
+      const settings = new UserSettings('spreadsheetId', mockUserProperties);
       expect(settings.networkCode).toBeNull();
     });
 
     it('saves property when set', () => {
-      const settings = new UserSettings(mockUserProperties);
+      const settings = new UserSettings('spreadsheetId', mockUserProperties);
       settings.networkCode = '1234567890';
       expect(mockUserProperties.setProperty).toHaveBeenCalledOnceWith(
-        'networkCode',
+        'spreadsheetId_networkCode',
         '1234567890',
       );
     });
@@ -48,17 +48,17 @@ describe('UserSettings', () => {
   describe('adManagerApiVersion', () => {
     it('returns default API version when no property is set', () => {
       mockUserProperties.getProperty.and.returnValue(null);
-      const settings = new UserSettings(mockUserProperties);
+      const settings = new UserSettings('spreadsheetId', mockUserProperties);
       expect(settings.adManagerApiVersion).toEqual(
         UserSettings.DEFAULT_API_VERSION,
       );
     });
 
     it('saves property when set', () => {
-      const settings = new UserSettings(mockUserProperties);
+      const settings = new UserSettings('spreadsheetId', mockUserProperties);
       settings.adManagerApiVersion = 'v202411';
       expect(mockUserProperties.setProperty).toHaveBeenCalledOnceWith(
-        'apiVersion',
+        'spreadsheetId_apiVersion',
         'v202411',
       );
     });
@@ -67,7 +67,7 @@ describe('UserSettings', () => {
   describe('childPublishers', () => {
     it('returns null when no property is set', () => {
       mockUserProperties.getProperty.and.returnValue(null);
-      const settings = new UserSettings(mockUserProperties);
+      const settings = new UserSettings('spreadsheetId', mockUserProperties);
       expect(settings.childPublishers).toEqual(null);
     });
 
@@ -81,15 +81,15 @@ describe('UserSettings', () => {
       mockUserProperties.getProperty.and.returnValue(
         JSON.stringify(publishers),
       );
-      const settings = new UserSettings(mockUserProperties);
+      const settings = new UserSettings('spreadsheetId', mockUserProperties);
       expect(settings.childPublishers).toEqual(publishers);
     });
 
     it('saves property when set', () => {
-      const settings = new UserSettings(mockUserProperties);
+      const settings = new UserSettings('spreadsheetId', mockUserProperties);
       settings.childPublishers = publishers;
       expect(mockUserProperties.setProperty).toHaveBeenCalledOnceWith(
-        'childPublishers',
+        'spreadsheetId_childPublishers',
         JSON.stringify(publishers),
       );
     });

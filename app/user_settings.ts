@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-
 /**
  * A map of child publishers indexed by child network code.
  */
@@ -31,16 +30,20 @@ export interface ChildPublisherMap {
  * Manages user settings for the Child Sites Toolkit.
  */
 export class UserSettings {
-  private readonly networkCodeKey = 'networkCode';
-  private readonly apiVersionKey = 'apiVersion';
-  private readonly childPublishersKey = 'childPublishers';
-  private readonly activeImportKey = 'activeImport';
+  private readonly networkCodeKey: string;
+  private readonly apiVersionKey: string;
+  private readonly childPublishersKey: string;
 
   static readonly DEFAULT_API_VERSION = 'v202411';
 
   constructor(
+    private readonly sheetId: string = SpreadsheetApp.getActiveSpreadsheet().getId(),
     private readonly userProperties = PropertiesService.getUserProperties(),
-  ) {}
+  ) {
+    this.networkCodeKey = `${this.sheetId}_networkCode`;
+    this.apiVersionKey = `${this.sheetId}_apiVersion`;
+    this.childPublishersKey = `${this.sheetId}_childPublishers`;
+  }
 
   /**
    * Retrieves the configured network code for the current user.
